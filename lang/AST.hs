@@ -4,7 +4,7 @@ import Control.Monad
 import Control.Monad.Trans.Reader
 import Data.Bifunctor
 import Data.Maybe(fromJust)
-import Data.List(sort)
+import Data.List(sort, sortOn)
 
 type Name = String
 
@@ -55,11 +55,13 @@ data Type
 
   | TDist Type
 
+instance Eq Type where
+  t1 == t2 = matchTypes [] t1 t2
 
 type Check = ReaderT (Gamma, Delta) Maybe
 
 type Gamma = [(Name, Type)]
-type Delta = [Type]
+type Delta = [Name]
 
 gamma :: Check Gamma
 gamma = asks fst
@@ -76,7 +78,7 @@ withGamma :: Name -> Type -> Check a -> Check a
 withGamma x t = local $ first ((x, t) :)
 
 withDelta :: Name -> Check a -> Check a
-withDelta t = local $ second (TVar t :)
+withDelta t = local $ second (t :)
 
 
 synth :: Expr -> Check Type
@@ -150,15 +152,49 @@ synth exp = case exp of
     TDist <$> synth e
 
 check :: Expr -> Type -> Check ()
-check exp typ = undefined
-
+check exp t = do
+  t' <- synth exp
+  guard $ t == t'
 
 okType :: Type -> Check ()
-okType t = undefined
+okType (TVar x) = delta >>= guard . elem x
+okType (TInd x t) = withDelta x $ okType t
+okType (TAll x t) = withDelta x $ okType t
+okType (TSum ss) = forM_ ss $ okType . snd
+okType (TProd ps) = forM_ ps okType
+okType (TArr t1 t2) = okType t1 >> okType t2
+okType (TDist t) = okType t
+okType TBool = return ()
 
 distType :: Type -> Check ()
-distType t = undefined
+distType TBool = return ()
+distType (TInd x t) = withDelta x $ distType t
+distType (TSum ss) = forM_ ss $ distType . snd
+distType (TProd ps) = forM_ ps distType
+distType (TVar x) = delta >>= guard . elem x
+distType _ = mzero
 
 subst :: Name -> Type -> Type -> Type
-subst x s t = undefined -- TODO: subst x for s in t
+subst x s t = case t of
+  TBool -> TBool
+  (TDist t') -> TDist (subst x s t')
+  (TArr t1 t2) -> TArr (subst x s t1) (subst x s t2)
+  (TVar x') -> if x == x' then s else t
+  (TInd x' t') -> if x == x' then t else TInd x' (subst x s t')
+  (TAll x' t') -> if x == x' then t else TAll x' (subst x s t')
+  (TSum ss) -> TSum $ map (second $ subst x s) ss
+  (TProd ps) -> TProd $ map (subst x s) ps
+
+matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
+matchTypes _ TBool TBool = True
+matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes ms la ra && matchTypes ms lr rr
+matchTypes ms (TDist l) (TDist r) = matchTypes ms l r
+matchTypes ms (TProd ls) (TProd rs) = and $ zipWith (matchTypes ms) ls rs
+matchTypes ms (TSum ls) (TSum rs) =
+  let f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
+  in and $ zipWith f (sortOn fst ls) (sortOn fst rs)
+matchTypes ms (TInd lx lt) (TInd rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
+matchTypes ms (TAll lx lt) (TAll rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
+matchTypes ms (TVar l) (TVar r) = lookup l ms == Just r
+matchTypes _ _ _ = False
 
