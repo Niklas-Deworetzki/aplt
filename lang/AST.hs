@@ -4,6 +4,7 @@ import Control.Monad
 import Control.Monad.Trans.Reader
 import Data.Bifunctor
 import Data.Maybe(fromJust)
+import Data.List(sort)
 
 type Name = String
 
@@ -28,7 +29,9 @@ data Expr
   -- tlet List = forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
   -- my t . Unit | Unit * t
   | Fold Name Type Expr
-  | Rec Name Type Name Expr Expr
+  -- rec {t.tau} tau' (x.e1; e2)
+  | Rec Name Type Type Name Expr Expr
+
   -- distributions
   | Distr Type
   | Bind Name Expr Expr
@@ -113,11 +116,38 @@ synth exp = case exp of
   (Case e t ps) -> do
     okType t
     (TSum ss) <- synth e -- scrutinized must be sum
-    guard $ [l | Pattern l _ _ <- ps] == map fst ss -- check that sum and patterns have same labels
+    guard $ sort [l | Pattern l _ _ <- ps] == sort (map fst ss) -- check that sum and patterns have same labels
     -- for each pattern, bind to var and check exp for given type
     forM_ ps $ \(Pattern lk xk ek) -> do
       withGamma xk (fromJust $ lookup lk ss) $ check ek t
     return t
+  (LitBool _) -> return TBool
+  (Fold t tau e) -> do
+    let tind = TInd t tau
+    okType tind
+    check e $ subst t tind tau
+    return tind
+  (Rec t tau tauR x e1 e2) -> do
+    let tind = TInd t tau
+    okType tind
+    check e2 tind
+    withGamma x (subst t tauR tau) $ check e1 tauR
+    return tauR
+  (Distr t) -> do
+    distType t
+    return $ TDist t
+  (Bind x e1 e2) -> do
+    (TDist t) <- synth e1
+    withGamma x t $ synth e2
+  (Guard p e) -> do
+    check p TBool
+    synth e
+  (Plus e1 e2) -> do
+    t <- synth e1
+    check e2 t
+    return t
+  (Return e) ->
+    TDist <$> synth e
 
 check :: Expr -> Type -> Check ()
 check exp typ = undefined
@@ -126,94 +156,9 @@ check exp typ = undefined
 okType :: Type -> Check ()
 okType t = undefined
 
+distType :: Type -> Check ()
+distType t = undefined
+
 subst :: Name -> Type -> Type -> Type
 subst x s t = undefined -- TODO: subst x for s in t
 
-{-
-synth delta gamma exp = case exp of
-  (Var x) -> lookup x gamma
-  (App f arg) -> do
-    -- f is a function
-    (TFun tPar tRes) <- synth delta gamma f
-    -- parameter and argument types match
-    check delta gamma arg tPar
-    return tRes
-  (Lambda x t b) -> do
-    let gamma' = (x, t) : gamma
-    tRet <- synth delta gamma' b
-    return $ TFun t tRet
-  (Let x e1 e2) -> do
-    tBound <- synth delta gamma e1
-    let gamma' = (x, tBound) : gamma
-    synth delta gamma' e2
-  (LitBool _) -> return TBool
-
-  (LambdaT x e) -> do
-    let delta' = (x, TVar x) : delta
-    t <- synth delta' gamma e
-    return $ TAll x t
-  (AppT t1 e) -> do
-    -- Ensure all type args are fine
-    okType delta t1
-    (TAll x t2) <- synth delta gamma e
-    -- Substitute all type variables
-    return $ tsubst x t1 t2
-
-  (DataType name cons e) -> do
-    let delta' = (name, TData name cons) : delta
-    synth delta' gamma e
-  (Fold t e pats) -> do
-    t'@(TData name cons) <- okType delta t
-    check delta gamma e t'
-    -- TODO: check all patterns have same type
-    -- TODO: check if all constructors are covered
-    -- TODO: return pattern type
-    _
-
-  (ConApp tname es) -> do
-    (con, tdata) <- findConstructor delta tname
-    guard $ length es == length (ctorArgs con)
-    sequence $ zipWith (check delta gamma) es (ctorArgs con)
-    return tdata
-  (TypeDistr t) ->
-    TDist <$> okType delta t
-    -- TODO: Check that we can randomly generate type
-
-  (Bind x e1 e2) -> do
-    (TDist t) <- synth delta gamma e1
-    let gamma' = (x, t) : gamma
-    synth delta gamma' e2
-  (Guard pred e) -> do
-    check delta gamma pred TBool
-    synth delta gamma e
-  (Plus e1 e2) -> do
-    t1 <- synth delta gamma e1
-    check delta gamma e2 t1
-    return t1
-  (Return e) -> do
-    t <- synth delta gamma e
-    return $ TDist t
-
-check :: Delta -> Gamma -> Expr -> Type -> Maybe ()
-check delta gamma exp typ =
-  fmap (equiv typ) (synth delta gamma exp) >>= guard
-
-okType :: Delta -> Type -> Maybe Type
-okType delta t = case t of
-  (TFun tp tr) -> do
-    tp' <- okType delta tp
-    tr' <- okType delta tr
-    return $ TFun tp' tr'
-  (TAll )
--- TODO: Return TData if TVar with name in env
-
-equiv :: Type -> Type -> Bool
-equiv = undefined
-
-tsubst :: Name -> Type -> Type -> Type
-tsubst x s t = undefined -- TODO: subst x for s in t
-
-findConstructor :: Delta -> Name -> Maybe (Constructor, Type)
-findConstructor delta name = undefined -- TODO: find constructor with name
-
--}
