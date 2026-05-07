@@ -9,11 +9,12 @@ import Data.List(sort, sortOn)
 
 type Name = String
 
-data List a = Cons a (List a) | Nil
+-- forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
+-- my t . Unit | Unit * t
 
 data Expr
   = Var Name
-  -- let x = e1 in e2
+  -- x = e1 in e2
   | Let Name Expr Expr
   -- \x T -> e
   | Lambda Name Type Expr
@@ -37,22 +38,29 @@ data Expr
   -- if e1 e2 e3
   | If Expr Expr Expr
 
-  -- tlet List = forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
-  -- my t . Unit | Unit * t
+  -- fold [t.T] ( e )
   | Fold Name Type Expr
-  -- rec {t.tau} tau' (x.e1; e2)
+  -- rec [t.T] T' {x.e1} (e2)
   | Rec Name Type Type Name Expr Expr
 
-  -- distributions
+  -- distr [T]
   | Distr Type
+  -- x ~ T in e
   | Bind Name Expr Expr
+  -- filter e1 in e2
   | Guard Expr Expr
+  -- e1 + e2
   | Plus Expr Expr
+  -- return e
   | Return Expr
+  deriving Show
 
 data Pattern
   = Pattern Name Name Expr
+  deriving Show
 
+-- forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
+-- my t . Unit | Unit * t
 data Type
   = TBool
   | TArr Type Type
@@ -65,6 +73,7 @@ data Type
   | TVar Name
 
   | TDist Type
+  deriving Show
 
 instance Eq Type where
   t1 == t2 = matchTypes [] t1 t2
@@ -101,8 +110,7 @@ synth exp = case exp of
   (Var x) -> lookupGamma x
   (Let x e1 e2) -> do
     t1 <- synth e1
-    t2 <- withGamma x t1 $ synth e2
-    return t2
+    withGamma x t1 $ synth e2
   (Lambda x t e) -> do
     okType t
     t' <- withGamma x t $ synth e
