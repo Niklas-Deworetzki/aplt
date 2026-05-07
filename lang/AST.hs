@@ -2,6 +2,7 @@ module AST where
 
 import Control.Monad
 import Control.Monad.Trans.Reader
+import Control.Monad.Trans.Class (lift)
 import Data.Bifunctor
 import Data.Maybe(fromJust)
 import Data.List(sort, sortOn)
@@ -12,20 +13,28 @@ data List a = Cons a (List a) | Nil
 
 data Expr
   = Var Name
+  -- let x = e1 in e2
   | Let Name Expr Expr
+  -- \x T -> e
   | Lambda Name Type Expr
+  -- f x
   | App Expr Expr
+  -- /\x => e
   | LambdaT Name Expr
+  -- e[T]
   | AppT Type Expr
-  | Prod [Expr]
-  | Proj Int Expr
+  -- < l1: e1 , ln: en >
+  | Prod [(Name, Expr)]
+  -- e.name
+  | Proj Name Expr
+  -- inj T { l: e }
   | Sum Type Name Expr
+  -- case e of T { l1 x1 -> e1 | ln xn -> en }
   | Case Expr Type [Pattern]
 
-  -- Literals
+  -- True False
   | LitBool Bool
 
-  -- Inductive shit
   -- tlet List = forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
   -- my t . Unit | Unit * t
   | Fold Name Type Expr
@@ -48,7 +57,7 @@ data Type
 
   | TInd Name Type
   | TSum [(Name, Type)]
-  | TProd [Type]
+  | TProd [(Name, Type)]
 
   | TAll Name Type
   | TVar Name
@@ -62,6 +71,10 @@ type Check = ReaderT (Gamma, Delta) Maybe
 
 type Gamma = [(Name, Type)]
 type Delta = [Name]
+
+-- Taken from https://hackage-content.haskell.org/package/extra-1.8.1/docs/src/Data.Tuple.Extra.html#secondM
+secondM :: Functor m => (b -> m b') -> (a, b) -> m (a, b')
+secondM f ~(a,b) = (a,) <$> f b
 
 gamma :: Check Gamma
 gamma = asks fst
@@ -104,17 +117,16 @@ synth exp = case exp of
     (TAll x t') <- synth e
     return $ subst x t t'
   (Prod es) ->
-    TProd <$> mapM synth es
+    TProd <$> forM es (secondM synth)
   (Proj k e) -> do
     (TProd ts) <- synth e
-    guard $ k `elem` [0 .. length ts]
-    return $ ts !! k
+    lift $ lookup k ts
   (Sum t x e) -> do
     okType t -- t has to be a type
     let TSum ss = t -- and a sum type
-    case lookup x ss of
-      Just tk -> check e tk >> return t
-      Nothing -> mzero
+    tk <- lift (lookup x ss)
+    check e tk
+    return t
   (Case e t ps) -> do
     okType t
     (TSum ss) <- synth e -- scrutinized must be sum
@@ -160,8 +172,8 @@ okType :: Type -> Check ()
 okType (TVar x) = delta >>= guard . elem x
 okType (TInd x t) = withDelta x $ okType t
 okType (TAll x t) = withDelta x $ okType t
-okType (TSum ss) = forM_ ss $ okType . snd
-okType (TProd ps) = forM_ ps okType
+okType (TSum ss)  = forM_ ss $ okType . snd
+okType (TProd ps) = forM_ ps $ okType . snd
 okType (TArr t1 t2) = okType t1 >> okType t2
 okType (TDist t) = okType t
 okType TBool = return ()
@@ -169,8 +181,8 @@ okType TBool = return ()
 distType :: Type -> Check ()
 distType TBool = return ()
 distType (TInd x t) = withDelta x $ distType t
-distType (TSum ss) = forM_ ss $ distType . snd
-distType (TProd ps) = forM_ ps distType
+distType (TSum ss)  = forM_ ss $ distType . snd
+distType (TProd ps) = forM_ ps $ distType . snd
 distType (TVar x) = delta >>= guard . elem x
 distType _ = mzero
 
@@ -182,19 +194,34 @@ subst x s t = case t of
   (TVar x') -> if x == x' then s else t
   (TInd x' t') -> if x == x' then t else TInd x' (subst x s t')
   (TAll x' t') -> if x == x' then t else TAll x' (subst x s t')
-  (TSum ss) -> TSum $ map (second $ subst x s) ss
-  (TProd ps) -> TProd $ map (subst x s) ps
+  (TSum ss)  -> TSum  $ map (second $ subst x s) ss
+  (TProd ps) -> TProd $ map (second $ subst x s) ps
 
 matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
 matchTypes _ TBool TBool = True
 matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes ms la ra && matchTypes ms lr rr
 matchTypes ms (TDist l) (TDist r) = matchTypes ms l r
-matchTypes ms (TProd ls) (TProd rs) = and $ zipWith (matchTypes ms) ls rs
-matchTypes ms (TSum ls) (TSum rs) =
-  let f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
-  in and $ zipWith f (sortOn fst ls) (sortOn fst rs)
+matchTypes ms (TProd ls) (TProd rs) = matchLabels ms ls rs
+matchTypes ms (TSum ls)  (TSum rs)  = matchLabels ms ls rs
 matchTypes ms (TInd lx lt) (TInd rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
 matchTypes ms (TAll lx lt) (TAll rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
 matchTypes ms (TVar l) (TVar r) = lookup l ms == Just r
 matchTypes _ _ _ = False
+
+matchLabels :: [(Name, Name)] -> [(Name, Type)] -> [(Name, Type)] -> Bool
+matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
+  where f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
+
+
+newtype Distr t = List t
+
+data Value
+  = VBool Bool
+  | VProd [Value]
+  | VSum Name Value
+  | VDist (Distr Value)
+  | VExpr Expr
+
+eval :: Expr -> Value
+eval e = undefined
 
