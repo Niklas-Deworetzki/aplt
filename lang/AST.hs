@@ -34,6 +34,8 @@ data Expr
 
   -- True False
   | LitBool Bool
+  -- if e1 e2 e3
+  | If Expr Expr Expr
 
   -- tlet List = forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
   -- my t . Unit | Unit * t
@@ -136,6 +138,11 @@ synth exp = case exp of
       withGamma xk (fromJust $ lookup lk ss) $ check ek t
     return t
   (LitBool _) -> return TBool
+  (If c t f) -> do
+    check c TBool
+    tau <- synth t
+    check f tau
+    return tau
   (Fold t tau e) -> do
     let tind = TInd t tau
     okType tind
