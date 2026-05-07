@@ -1,0 +1,54 @@
+
+PLet.		PExp8 ::= Ident "=" PExp7 "in" PExp8;
+PBind.		PExp8 ::= Ident "~" PExp7 "in" PExp8;
+
+PLambda.	PExp7 ::= "\\" Ident "->" PExp7;
+PLambdaT.	PExp7 ::= "/\\" Ident "=>" PExp7;
+
+PPlus.		PExp6 ::= PExp5 "+" PExp5;
+
+PIf.		PExp5 ::= "if" PExp4 PExp4 PExp4;
+PReturn.	PExp5 ::= "return" PExp4;
+PDistr.		PExp5 ::= "distr" PExp4;
+PGuard.		PExp5 ::= "filter" PExp4 "in" PExp;
+
+PApp.		PExp4 ::= PExp3 PExp3;
+
+PProj.		PExp3 ::= PExp2 "." Ident;
+PAppT.		PExp3 ::= PExp2 "[" PTyp "]";
+
+PProd.		PExp2 ::= "<" [PLabExp] ">";
+PSum.		PExp2 ::= "inj" PTyp "{" PlabExp "}";
+PCase.		PExp2 ::= "case" PExp "of" PTyp "{" [PCaseExp] "}";
+PFold.		PExp2 ::= "fold" "[" Ident "." PTyp "]" "(" PExp ")";
+PRec.		PExp2 ::= "rec" "[" Ident "." PTyp "]" PTyp "{" Ident "." PExp "}" "(" PExp ")";
+
+PVar. 		PExp1 ::= Ident;
+PBoolT.		PExp1 ::= "True";
+PBoolF.		PExp1 ::= "False";
+PPar.		PExp1 ::= "(" PExp ")";
+
+PLabExp. PLabExp ::= Identifier ":" PExp;
+separator PLabExp ",";
+
+PCaseExp. PCaseExp ::= Identifier Identifier "->" PExp;
+separator PCaseExp ",";
+
+
+
+PTBool.		PTyp ::= "Bool";
+PTVar.		PTyp ::= Ident;
+PTArr.		PTyp ::= "Arr" PTyp PTyp;
+PTDist.		PTyp ::= "Dist" PTyp;
+PTProd.		PTyp ::= "<" [TMember] ">";
+PTSum.		PTyp ::= "<+" [TMember1] "+>";
+PTAll.		PTyp ::= "forall" Ident "." PTyp;
+PTInd.		PTyp ::= "my" Ident "." PTyp;
+
+
+TMember. TMember ::= Ident ":" PTyp;
+separator TMember ",";
+
+TMember1. TMember1 ::= Ident ":" PTyp;
+separator nonempty TMember1 "|";
+
