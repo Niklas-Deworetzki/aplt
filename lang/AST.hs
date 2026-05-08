@@ -1,4 +1,5 @@
-module AST where
+{-# LANGUAGE LambdaCase #-}
+module AST(convert, synth) where
 
 import Control.Monad
 import Control.Monad.Trans.Reader
@@ -6,6 +7,7 @@ import Control.Monad.Trans.Class (lift)
 import Data.Bifunctor
 import Data.Maybe(fromJust)
 import Data.List(sort, sortOn)
+import Lang.Abs
 
 type Name = String
 
@@ -251,6 +253,49 @@ matchLabels :: [(Name, Name)] -> [(Name, Type)] -> [(Name, Type)] -> Bool
 matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
   where f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
 
+
+
+
+-- CONVERTER
+convert (Gen exps) = map convertExp exps
+
+convertExp = \case 
+    PLet (Ident ident) e1 e2 -> Let ident (convertExp e1) (convertExp e2) 
+    PBind (Ident ident) e1 e2 -> Bind ident (convertExp e1) (convertExp e2)
+    PIf e1 e2 e3 -> If (convertExp e1) (convertExp e2) (convertExp e3)
+    PLambda (Ident ident) t e -> Lambda ident (convertType t) (convertExp e)
+    PLambdaT (Ident ident) e -> LambdaT ident (convertExp e)
+    PPlus e1 e2 -> Plus (convertExp e1) (convertExp e2)
+    PReturn e -> Return (convertExp e)
+    PDistr t -> Distr (convertType t)
+    PProj e (Ident ident) -> Proj ident (convertExp e)
+    PAppT e t -> AppT (convertType t) (convertExp e)
+    PProd es -> Prod (map (\(PLabExp (Ident ident) e) -> (ident, convertExp e)) es)
+    PSum t (PLabExp (Ident ident) e) -> Sum (convertType t) ident (convertExp e)
+    PCase e t patts -> Case (convertExp e) (convertType t) (map convertPattern patts)
+    PRec e1 (Ident ident) e2 e3 -> Iter (convertExp e1) ident (convertExp e2) (convertExp e3)
+    PApp e1 e2 -> App (convertExp e1) (convertExp e2)
+    PBoolT -> LitBool True
+    PBoolF -> LitBool False
+    PVar (Ident ident) -> Var ident 
+    PZero -> Zero
+    PSucc e -> Succ (convertExp e)
+
+    where convertPattern (PCaseExp (Ident ident1) (Ident ident2) e) = Pattern ident1 ident2 (convertExp e)
+
+convertType = \case 
+    PTBool -> TBool 
+    PTVar (Ident ident) -> TVar ident
+    PTArr t1 t2 -> TArr (convertType t1) (convertType t2)
+    PTDist t -> TDist (convertType t)
+    PTProd members -> TSum (map convertMember members)
+    PTSum members -> TProd (map convertMember members)
+    PTAll (Ident ident) t -> TAll ident (convertType t)
+
+    where 
+        convertMember = \case 
+            TMember (Ident ident) t -> (ident, convertType t)
+            TMember1 (Ident ident) t -> (ident, convertType t)
 
 
 
