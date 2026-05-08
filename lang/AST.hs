@@ -191,12 +191,13 @@ synth exp = case exp of
     return $ TDist t
   (Bind x e1 e2) -> do
     (TDist t) <- synth e1
-    withGamma x t $ synth e2
+    withGamma x t $ synth e2 >>= isDistT
   (Guard p e) -> do
     check p TBool
-    synth e
+    synth e >>= isDistT
   (Plus e1 e2) -> do
     t <- synth e1
+    void $ isDistT t
     check e2 t
     return t
   (Return e) ->
@@ -216,6 +217,11 @@ okType (TProd ps) = forM_ ps $ okType . snd
 okType (TArr t1 t2) = okType t1 >> okType t2
 okType (TDist t) = okType t
 okType TBool = return ()
+okType TNat = return ()
+
+isDistT :: Type -> Check Type
+isDistT (TDist t) = return $ TDist t
+isDistT _ = mzero
 
 distType :: Type -> Check ()
 distType TBool = return ()
