@@ -1,6 +1,5 @@
 entrypoints Gen ;
-Gen. Gen ::= [PExp] ; 
-separator nonempty PExp ";" ;
+Gen. Gen ::= PExp ; 
 
 -- Data. Tdef :: = "%data" Ident [Tbind] "=" [Cdef] ;
 
@@ -18,7 +17,7 @@ PBind.		PExp ::= Ident "~" PExp1 "in" PExp;
 PIf.    PExp     ::= "if" PExp "then" PExp "else" PExp ;
 PGuard. PExp ::= "filter" PExp6 "in" PExp;
 
-PLambda.	PExp1 ::= "\\" Ident "->" PExp1;
+PLambda.	PExp1 ::= "\\" Ident "::" PTyp "->" PExp1;
 PLambdaT.	PExp1 ::= "/\\" Ident "=>" PExp1;
 
 PPlus.		PExp2 ::= PExp2 "+" PExp3;
@@ -31,13 +30,17 @@ PAppT.		PExp5 ::= PExp6 "[" PTyp "]";
 PProd.		PExp6 ::= "<" [PLabExp] ">";
 PSum.		PExp6 ::= "inj" PTyp "{" PLabExp "}";
 PCase.		PExp6 ::= "case" PExp "of" PTyp "{" [PCaseExp] "}";
+PRec.       PExp6 ::= "iter" "{" PExp ";" Ident ";" PExp "}" "(" PExp7 ")" ;
 -- PFold.		PExp6 ::= "fold" "[" Ident "." PTyp "]" "(" PExp ")";
---PRec.		PExp6 ::= "rec" "[" Ident "." PTyp "]" PTyp "{" Ident "." PExp "}" "(" PExp ")";
+-- PRec.		PExp6 ::= "rec" "[" Ident "." PTyp "]" PTyp "{" Ident "." PExp "}" "(" PExp ")";
 PApp.		PExp6 ::= PExp6 PExp7;   
 
 PBoolT.		PExp7 ::= "True";
 PBoolF.		PExp7 ::= "False";
 PVar. 		PExp7 ::= Ident;
+PZero.      PExp7 ::= "Z"; 
+PSucc.      PExp7 ::= "S" "(" PExp7 ")"; 
+
 
 -- PPar.		PExp7 ::= "(" PExp ")";
 
@@ -53,12 +56,12 @@ separator PCaseExp ",";
 
 PTBool.		PTyp ::= "Bool";
 PTVar.		PTyp ::= Ident;
-PTArr.		PTyp ::= PTyp "->" PTyp;
+PTArr.		PTyp ::= "Arr" PTyp PTyp;
 PTDist.		PTyp ::= "Dist" PTyp;
 PTProd.		PTyp ::= "<" [TMember] ">";
 PTSum.		PTyp ::= "{" [TMember1] "}";
 PTAll.		PTyp ::= "forall" Ident "." PTyp;
-PTInd.		PTyp ::= "my" Ident "." PTyp;
+-- PTInd.		PTyp ::= "my" Ident "." PTyp;
 
 
 TMember. TMember ::= Ident ":" PTyp;

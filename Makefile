@@ -2,7 +2,7 @@ GHC        = ghc
 HAPPY      = happy
 HAPPY_OPTS = --info --ghc --coerce
 ALEX       = alex
-ALEX_OPTS  = --ghc
+ALEX_OPTS  = --ghc 
 files = lang/main.hs lang/Lang.cf lang/Lang/Abs.hs lang/Lang/Lex.hs lang/Lang/Par.hs lang/Lang/Print.hs lang/Lang/Test.hs 
 
 # List of goals not corresponding to file names.
@@ -12,9 +12,9 @@ all : int
 # Rules for building the parser.
 lang/Lang/Abs.hs lang/Lang/Lex.hs lang/Lang/Par.hs lang/Lang/Print.hs lang/Lang/Test.hs: lang/Lang.cf
 	cd lang && bnfc -d Lang.cf
-%.hs : %.y
+%.hs : lang/Lang/%.y
 	${HAPPY} ${HAPPY_OPTS} $<
-%.hs : %.x
+%.hs : lang/Lang/%.x
 	${ALEX} ${ALEX_OPTS} $<
 lang/Lang/Test : lang/Lang/Abs.hs lang/Lang/Lex.hs lang/Lang/Par.hs lang/Lang/Print.hs lang/Lang/Test.hs
 	${GHC} ${GHC_OPTS} $@
