@@ -263,6 +263,7 @@ convertExp = \case
     PLet (Ident ident) e1 e2 -> Let ident (convertExp e1) (convertExp e2)
     PBind (Ident ident) e1 e2 -> Bind ident (convertExp e1) (convertExp e2)
     PIf e1 e2 e3 -> If (convertExp e1) (convertExp e2) (convertExp e3)
+    PGuard e1 e2 -> Guard (convertExp e1) (convertExp e2)
     PLambda (Ident ident) t e -> Lambda ident (convertType t) (convertExp e)
     PLambdaT (Ident ident) e -> LambdaT ident (convertExp e)
     PPlus e1 e2 -> Plus (convertExp e1) (convertExp e2)
