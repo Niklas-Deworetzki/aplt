@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
-module AST(convert, typecheck) where
+module AST where
 
 import Control.Monad
 import Control.Monad.Trans.Reader
@@ -259,8 +259,8 @@ matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
 -- CONVERTER
 convert (Gen exp) = convertExp exp
 
-convertExp = \case 
-    PLet (Ident ident) e1 e2 -> Let ident (convertExp e1) (convertExp e2) 
+convertExp = \case
+    PLet (Ident ident) e1 e2 -> Let ident (convertExp e1) (convertExp e2)
     PBind (Ident ident) e1 e2 -> Bind ident (convertExp e1) (convertExp e2)
     PIf e1 e2 e3 -> If (convertExp e1) (convertExp e2) (convertExp e3)
     PLambda (Ident ident) t e -> Lambda ident (convertType t) (convertExp e)
@@ -277,14 +277,14 @@ convertExp = \case
     PApp e1 e2 -> App (convertExp e1) (convertExp e2)
     PBoolT -> LitBool True
     PBoolF -> LitBool False
-    PVar (Ident ident) -> Var ident 
+    PVar (Ident ident) -> Var ident
     PZero -> Zero
     PSucc e -> Succ (convertExp e)
 
     where convertPattern (PCaseExp (Ident ident1) (Ident ident2) e) = Pattern ident1 ident2 (convertExp e)
 
-convertType = \case 
-    PTBool -> TBool 
+convertType = \case
+    PTBool -> TBool
     PTVar (Ident ident) -> TVar ident
     PTArr t1 t2 -> TArr (convertType t1) (convertType t2)
     PTDist t -> TDist (convertType t)
@@ -292,8 +292,8 @@ convertType = \case
     PTSum members -> TProd (map convertMember members)
     PTAll (Ident ident) t -> TAll ident (convertType t)
 
-    where 
-        convertMember = \case 
+    where
+        convertMember = \case
             TMember (Ident ident) t -> (ident, convertType t)
             TMember1 (Ident ident) t -> (ident, convertType t)
 
