@@ -16,7 +16,7 @@ data Expr
   = Var Name
   -- x = e1 in e2
   | Let Name Expr Expr
-  -- \x T -> e
+  -- \x :: T -> e
   | Lambda Name Type Expr
   -- f x
   | App Expr Expr
@@ -37,6 +37,14 @@ data Expr
   | LitBool Bool
   -- if e1 e2 e3
   | If Expr Expr Expr
+
+
+  -- Z
+  | Zero
+  -- S (e)
+  | Succ Expr
+  -- iter { e1 ; x. e2 } (e3)
+  | Iter Expr Name Expr Expr
 
   -- inductive types are dead (for now)
   -- fold [t.T] ( e )
@@ -64,6 +72,7 @@ data Pattern
 -- my t . Unit | Unit * t
 data Type
   = TBool
+  | TNat
   | TArr Type Type
 
   -- ind types are dead
@@ -153,6 +162,13 @@ synth exp = case exp of
     tau <- synth t
     check f tau
     return tau
+  Zero -> return TNat
+  (Succ e) -> check e TNat >> return TNat
+  (Iter eb x ei e) -> do
+    check e TNat
+    tau <- synth eb
+    withGamma x tau $ check ei tau
+    return tau
   {-(Fold t tau e) -> do
     let tind = TInd t tau
     okType tind
@@ -206,6 +222,7 @@ distType _ = mzero
 subst :: Name -> Type -> Type -> Type
 subst x s t = case t of
   TBool -> TBool
+  TNat -> TNat
   (TDist t') -> TDist (subst x s t')
   (TArr t1 t2) -> TArr (subst x s t1) (subst x s t2)
   (TVar x') -> if x == x' then s else t
@@ -216,6 +233,7 @@ subst x s t = case t of
 
 matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
 matchTypes _ TBool TBool = True
+matchTypes _ TNat TNat = True
 matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes ms la ra && matchTypes ms lr rr
 matchTypes ms (TDist l) (TDist r) = matchTypes ms l r
 matchTypes ms (TProd ls) (TProd rs) = matchLabels ms ls rs
@@ -230,15 +248,5 @@ matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
   where f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
 
 
-newtype Distr t = List t
 
-data Value
-  = VBool Bool
-  | VProd [Value]
-  | VSum Name Value
-  | VDist (Distr Value)
-  | VExpr Expr
-
-eval :: Expr -> Value
-eval e = undefined
 
