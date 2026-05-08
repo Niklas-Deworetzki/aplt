@@ -38,10 +38,11 @@ data Expr
   -- if e1 e2 e3
   | If Expr Expr Expr
 
+  -- inductive types are dead (for now)
   -- fold [t.T] ( e )
-  | Fold Name Type Expr
+  -- | Fold Name Type Expr
   -- rec [t.T] T' {x.e1} (e2)
-  | Rec Name Type Type Name Expr Expr
+  -- | Rec Name Type Type Name Expr Expr
 
   -- distr [T]
   | Distr Type
@@ -65,7 +66,8 @@ data Type
   = TBool
   | TArr Type Type
 
-  | TInd Name Type
+  -- ind types are dead
+  -- | TInd Name Type
   | TSum [(Name, Type)]
   | TProd [(Name, Type)]
 
@@ -151,7 +153,7 @@ synth exp = case exp of
     tau <- synth t
     check f tau
     return tau
-  (Fold t tau e) -> do
+  {-(Fold t tau e) -> do
     let tind = TInd t tau
     okType tind
     check e $ subst t tind tau
@@ -161,7 +163,7 @@ synth exp = case exp of
     okType tind
     check e2 tind
     withGamma x (subst t tauR tau) $ check e1 tauR
-    return tauR
+    return tauR -}
   (Distr t) -> do
     distType t
     return $ TDist t
@@ -185,7 +187,7 @@ check exp t = do
 
 okType :: Type -> Check ()
 okType (TVar x) = delta >>= guard . elem x
-okType (TInd x t) = withDelta x $ okType t
+-- okType (TInd x t) = withDelta x $ okType t
 okType (TAll x t) = withDelta x $ okType t
 okType (TSum ss)  = forM_ ss $ okType . snd
 okType (TProd ps) = forM_ ps $ okType . snd
@@ -195,7 +197,7 @@ okType TBool = return ()
 
 distType :: Type -> Check ()
 distType TBool = return ()
-distType (TInd x t) = withDelta x $ distType t
+-- distType (TInd x t) = withDelta x $ distType t
 distType (TSum ss)  = forM_ ss $ distType . snd
 distType (TProd ps) = forM_ ps $ distType . snd
 distType (TVar x) = delta >>= guard . elem x
@@ -207,7 +209,7 @@ subst x s t = case t of
   (TDist t') -> TDist (subst x s t')
   (TArr t1 t2) -> TArr (subst x s t1) (subst x s t2)
   (TVar x') -> if x == x' then s else t
-  (TInd x' t') -> if x == x' then t else TInd x' (subst x s t')
+  -- (TInd x' t') -> if x == x' then t else TInd x' (subst x s t')
   (TAll x' t') -> if x == x' then t else TAll x' (subst x s t')
   (TSum ss)  -> TSum  $ map (second $ subst x s) ss
   (TProd ps) -> TProd $ map (second $ subst x s) ps
@@ -218,7 +220,7 @@ matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes ms la ra && matchTypes ms l
 matchTypes ms (TDist l) (TDist r) = matchTypes ms l r
 matchTypes ms (TProd ls) (TProd rs) = matchLabels ms ls rs
 matchTypes ms (TSum ls)  (TSum rs)  = matchLabels ms ls rs
-matchTypes ms (TInd lx lt) (TInd rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
+-- matchTypes ms (TInd lx lt) (TInd rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
 matchTypes ms (TAll lx lt) (TAll rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
 matchTypes ms (TVar l) (TVar r) = lookup l ms == Just r
 matchTypes _ _ _ = False
