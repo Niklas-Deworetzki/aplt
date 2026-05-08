@@ -115,6 +115,10 @@ withGamma x t = local $ first ((x, t) :)
 withDelta :: Name -> Check a -> Check a
 withDelta t = local $ second (t :)
 
+typecheck :: Expr -> Either String Type
+typecheck e = case runReaderT (synth e) ([], []) of
+  Just t -> Right t
+  Nothing -> Left "type error"
 
 synth :: Expr -> Check Type
 synth exp = case exp of
