@@ -21,7 +21,7 @@ transIdent x = case x of
 
 transGen :: Lang.Abs.Gen -> Result
 transGen x = case x of
-  Lang.Abs.Gen pexps -> failure x
+  Lang.Abs.Gen pexp -> failure x
 
 transPExp :: Lang.Abs.PExp -> Result
 transPExp x = case x of
@@ -29,7 +29,7 @@ transPExp x = case x of
   Lang.Abs.PBind ident pexp1 pexp2 -> failure x
   Lang.Abs.PIf pexp1 pexp2 pexp3 -> failure x
   Lang.Abs.PGuard pexp1 pexp2 -> failure x
-  Lang.Abs.PLambda ident pexp -> failure x
+  Lang.Abs.PLambda ident ptyp pexp -> failure x
   Lang.Abs.PLambdaT ident pexp -> failure x
   Lang.Abs.PPlus pexp1 pexp2 -> failure x
   Lang.Abs.PReturn pexp -> failure x
@@ -39,10 +39,13 @@ transPExp x = case x of
   Lang.Abs.PProd plabexps -> failure x
   Lang.Abs.PSum ptyp plabexp -> failure x
   Lang.Abs.PCase pexp ptyp pcaseexps -> failure x
+  Lang.Abs.PRec pexp1 ident pexp2 pexp3 -> failure x
   Lang.Abs.PApp pexp1 pexp2 -> failure x
   Lang.Abs.PBoolT -> failure x
   Lang.Abs.PBoolF -> failure x
   Lang.Abs.PVar ident -> failure x
+  Lang.Abs.PZero -> failure x
+  Lang.Abs.PSucc pexp -> failure x
 
 transPLabExp :: Lang.Abs.PLabExp -> Result
 transPLabExp x = case x of
@@ -61,7 +64,6 @@ transPTyp x = case x of
   Lang.Abs.PTProd tmembers -> failure x
   Lang.Abs.PTSum tmembers -> failure x
   Lang.Abs.PTAll ident ptyp -> failure x
-  Lang.Abs.PTInd ident ptyp -> failure x
 
 transTMember :: Lang.Abs.TMember -> Result
 transTMember x = case x of

@@ -10,7 +10,7 @@ import Prelude (String)
 import qualified Prelude as C (Eq, Ord, Show, Read)
 import qualified Data.String
 
-data Gen = Gen [PExp]
+data Gen = Gen PExp
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data PExp
@@ -18,7 +18,7 @@ data PExp
     | PBind Ident PExp PExp
     | PIf PExp PExp PExp
     | PGuard PExp PExp
-    | PLambda Ident PExp
+    | PLambda Ident PTyp PExp
     | PLambdaT Ident PExp
     | PPlus PExp PExp
     | PReturn PExp
@@ -28,10 +28,13 @@ data PExp
     | PProd [PLabExp]
     | PSum PTyp PLabExp
     | PCase PExp PTyp [PCaseExp]
+    | PRec PExp Ident PExp PExp
     | PApp PExp PExp
     | PBoolT
     | PBoolF
     | PVar Ident
+    | PZero
+    | PSucc PExp
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data PLabExp = PLabExp Ident PExp
@@ -48,7 +51,6 @@ data PTyp
     | PTProd [TMember]
     | PTSum [TMember]
     | PTAll Ident PTyp
-    | PTInd Ident PTyp
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data TMember = TMember Ident PTyp | TMember1 Ident PTyp

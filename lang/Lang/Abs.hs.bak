@@ -18,20 +18,23 @@ data PExp
     | PBind Ident PExp PExp
     | PIf PExp PExp PExp
     | PGuard PExp PExp
-    | PLambda Ident PExp
+    | PLambda Ident PTyp PExp
     | PLambdaT Ident PExp
     | PPlus PExp PExp
     | PReturn PExp
-    | PDistr PExp
+    | PDistr PTyp
     | PProj PExp Ident
     | PAppT PExp PTyp
     | PProd [PLabExp]
     | PSum PTyp PLabExp
     | PCase PExp PTyp [PCaseExp]
+    | PRec PExp Ident PExp PExp
     | PApp PExp PExp
     | PBoolT
     | PBoolF
     | PVar Ident
+    | PZero
+    | PSucc PExp
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data PLabExp = PLabExp Ident PExp
@@ -48,7 +51,6 @@ data PTyp
     | PTProd [TMember]
     | PTSum [TMember]
     | PTAll Ident PTyp
-    | PTInd Ident PTyp
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data TMember = TMember Ident PTyp | TMember1 Ident PTyp

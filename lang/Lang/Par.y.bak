@@ -31,34 +31,38 @@ import Lang.Lex
   '.'      { PT _ (TS _ 6)  }
   '/\\'    { PT _ (TS _ 7)  }
   ':'      { PT _ (TS _ 8)  }
-  ';'      { PT _ (TS _ 9)  }
-  '<'      { PT _ (TS _ 10) }
-  '='      { PT _ (TS _ 11) }
-  '=>'     { PT _ (TS _ 12) }
-  '>'      { PT _ (TS _ 13) }
-  'Bool'   { PT _ (TS _ 14) }
-  'Dist'   { PT _ (TS _ 15) }
-  'False'  { PT _ (TS _ 16) }
-  'True'   { PT _ (TS _ 17) }
-  '['      { PT _ (TS _ 18) }
-  '\\'     { PT _ (TS _ 19) }
-  ']'      { PT _ (TS _ 20) }
-  'case'   { PT _ (TS _ 21) }
-  'distr'  { PT _ (TS _ 22) }
-  'else'   { PT _ (TS _ 23) }
-  'filter' { PT _ (TS _ 24) }
-  'forall' { PT _ (TS _ 25) }
-  'if'     { PT _ (TS _ 26) }
-  'in'     { PT _ (TS _ 27) }
-  'inj'    { PT _ (TS _ 28) }
-  'my'     { PT _ (TS _ 29) }
-  'of'     { PT _ (TS _ 30) }
-  'return' { PT _ (TS _ 31) }
-  'then'   { PT _ (TS _ 32) }
-  '{'      { PT _ (TS _ 33) }
-  '|'      { PT _ (TS _ 34) }
-  '}'      { PT _ (TS _ 35) }
-  '~'      { PT _ (TS _ 36) }
+  '::'     { PT _ (TS _ 9)  }
+  ';'      { PT _ (TS _ 10) }
+  '<'      { PT _ (TS _ 11) }
+  '='      { PT _ (TS _ 12) }
+  '=>'     { PT _ (TS _ 13) }
+  '>'      { PT _ (TS _ 14) }
+  'Arr'    { PT _ (TS _ 15) }
+  'Bool'   { PT _ (TS _ 16) }
+  'Dist'   { PT _ (TS _ 17) }
+  'False'  { PT _ (TS _ 18) }
+  'S'      { PT _ (TS _ 19) }
+  'True'   { PT _ (TS _ 20) }
+  'Z'      { PT _ (TS _ 21) }
+  '['      { PT _ (TS _ 22) }
+  '\\'     { PT _ (TS _ 23) }
+  ']'      { PT _ (TS _ 24) }
+  'case'   { PT _ (TS _ 25) }
+  'distr'  { PT _ (TS _ 26) }
+  'else'   { PT _ (TS _ 27) }
+  'filter' { PT _ (TS _ 28) }
+  'forall' { PT _ (TS _ 29) }
+  'if'     { PT _ (TS _ 30) }
+  'in'     { PT _ (TS _ 31) }
+  'inj'    { PT _ (TS _ 32) }
+  'iter'   { PT _ (TS _ 33) }
+  'of'     { PT _ (TS _ 34) }
+  'return' { PT _ (TS _ 35) }
+  'then'   { PT _ (TS _ 36) }
+  '{'      { PT _ (TS _ 37) }
+  '|'      { PT _ (TS _ 38) }
+  '}'      { PT _ (TS _ 39) }
+  '~'      { PT _ (TS _ 40) }
   L_Ident  { PT _ (TV $$)   }
 
 %%
@@ -82,7 +86,7 @@ PExp
 
 PExp1 :: { Lang.Abs.PExp }
 PExp1
-  : '\\' Ident '->' PExp1 { Lang.Abs.PLambda $2 $4 }
+  : '\\' Ident '::' PTyp '->' PExp1 { Lang.Abs.PLambda $2 $4 $6 }
   | '/\\' Ident '=>' PExp1 { Lang.Abs.PLambdaT $2 $4 }
   | PExp2 { $1 }
 
@@ -92,7 +96,7 @@ PExp2 : PExp2 '+' PExp3 { Lang.Abs.PPlus $1 $3 } | PExp3 { $1 }
 PExp3 :: { Lang.Abs.PExp }
 PExp3
   : 'return' PExp4 { Lang.Abs.PReturn $2 }
-  | 'distr' PExp4 { Lang.Abs.PDistr $2 }
+  | 'distr' PTyp { Lang.Abs.PDistr $2 }
   | PExp4 { $1 }
 
 PExp5 :: { Lang.Abs.PExp }
@@ -106,6 +110,7 @@ PExp6
   : '<' ListPLabExp '>' { Lang.Abs.PProd $2 }
   | 'inj' PTyp '{' PLabExp '}' { Lang.Abs.PSum $2 $4 }
   | 'case' PExp 'of' PTyp '{' ListPCaseExp '}' { Lang.Abs.PCase $2 $4 $6 }
+  | 'iter' '{' PExp ';' Ident ';' PExp '}' '(' PExp7 ')' { Lang.Abs.PRec $3 $5 $7 $10 }
   | PExp6 PExp7 { Lang.Abs.PApp $1 $2 }
   | PExp7 { $1 }
 
@@ -114,6 +119,8 @@ PExp7
   : 'True' { Lang.Abs.PBoolT }
   | 'False' { Lang.Abs.PBoolF }
   | Ident { Lang.Abs.PVar $1 }
+  | 'Z' { Lang.Abs.PZero }
+  | 'S' '(' PExp7 ')' { Lang.Abs.PSucc $3 }
   | '(' PExp ')' { $2 }
 
 PExp4 :: { Lang.Abs.PExp }
@@ -141,12 +148,11 @@ PTyp :: { Lang.Abs.PTyp }
 PTyp
   : 'Bool' { Lang.Abs.PTBool }
   | Ident { Lang.Abs.PTVar $1 }
-  | PTyp '->' PTyp { Lang.Abs.PTArr $1 $3 }
+  | 'Arr' PTyp PTyp { Lang.Abs.PTArr $2 $3 }
   | 'Dist' PTyp { Lang.Abs.PTDist $2 }
   | '<' ListTMember '>' { Lang.Abs.PTProd $2 }
   | '{' ListTMember1 '}' { Lang.Abs.PTSum $2 }
   | 'forall' Ident '.' PTyp { Lang.Abs.PTAll $2 $4 }
-  | 'my' Ident '.' PTyp { Lang.Abs.PTInd $2 $4 }
 
 TMember :: { Lang.Abs.TMember }
 TMember : Ident ':' PTyp { Lang.Abs.TMember $1 $3 }

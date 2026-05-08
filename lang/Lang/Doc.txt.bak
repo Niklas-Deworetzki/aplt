@@ -22,17 +22,19 @@ reserved words excluded.
 The set of reserved words is the set of terminals appearing in the grammar. Those reserved words that consist of non-letter characters are called symbols, and they are treated in a different way from those that are similar to identifiers. The lexer follows rules familiar from languages like Haskell, C, and Java, including longest match and spacing conventions.
 
 The reserved words used in Lang are the following:
-  | ``Bool`` | ``Dist`` | ``False`` | ``True``
-  | ``case`` | ``distr`` | ``else`` | ``filter``
-  | ``forall`` | ``if`` | ``in`` | ``inj``
-  | ``my`` | ``of`` | ``return`` | ``then``
+  | ``Arr`` | ``Bool`` | ``Dist`` | ``False``
+  | ``S`` | ``True`` | ``Z`` | ``case``
+  | ``distr`` | ``else`` | ``filter`` | ``forall``
+  | ``if`` | ``in`` | ``inj`` | ``iter``
+  | ``of`` | ``return`` | ``then`` |
 
 The symbols used in Lang are the following:
   | ; | = | ~ | \
-  | -> | /\ | => | +
-  | . | [ | ] | <
-  | > | { | } | (
-  | ) | : | , | |
+  | :: | -> | /\ | =>
+  | + | . | [ | ]
+  | < | > | { | }
+  | ( | ) | : | ,
+  | | |  |  |
 
 ===Comments===
 Single-line comments begin with --.Multiple-line comments are  enclosed with {- and -}.
@@ -51,13 +53,13 @@ All other symbols are terminals.
   |  |  **|**  | ``if`` //PExp// ``then`` //PExp// ``else`` //PExp//
   |  |  **|**  | ``filter`` //PExp6// ``in`` //PExp//
   |  |  **|**  | //PExp1//
-  | //PExp1// | -> | ``\`` //Ident// ``->`` //PExp1//
+  | //PExp1// | -> | ``\`` //Ident// ``::`` //PTyp// ``->`` //PExp1//
   |  |  **|**  | ``/\`` //Ident// ``=>`` //PExp1//
   |  |  **|**  | //PExp2//
   | //PExp2// | -> | //PExp2// ``+`` //PExp3//
   |  |  **|**  | //PExp3//
   | //PExp3// | -> | ``return`` //PExp4//
-  |  |  **|**  | ``distr`` //PExp4//
+  |  |  **|**  | ``distr`` //PTyp//
   |  |  **|**  | //PExp4//
   | //PExp5// | -> | //PExp5// ``.`` //Ident//
   |  |  **|**  | //PExp6// ``[`` //PTyp// ``]``
@@ -65,11 +67,14 @@ All other symbols are terminals.
   | //PExp6// | -> | ``<`` //[PLabExp]// ``>``
   |  |  **|**  | ``inj`` //PTyp// ``{`` //PLabExp// ``}``
   |  |  **|**  | ``case`` //PExp// ``of`` //PTyp// ``{`` //[PCaseExp]// ``}``
+  |  |  **|**  | ``iter`` ``{`` //PExp// ``;`` //Ident// ``;`` //PExp// ``}`` ``(`` //PExp7// ``)``
   |  |  **|**  | //PExp6// //PExp7//
   |  |  **|**  | //PExp7//
   | //PExp7// | -> | ``True``
   |  |  **|**  | ``False``
   |  |  **|**  | //Ident//
+  |  |  **|**  | ``Z``
+  |  |  **|**  | ``S`` ``(`` //PExp7// ``)``
   |  |  **|**  | ``(`` //PExp// ``)``
   | //PExp4// | -> | //PExp5//
   | //PLabExp// | -> | //Ident// ``:`` //PExp//
@@ -82,12 +87,11 @@ All other symbols are terminals.
   |  |  **|**  | //PCaseExp// ``,`` //[PCaseExp]//
   | //PTyp// | -> | ``Bool``
   |  |  **|**  | //Ident//
-  |  |  **|**  | //PTyp// ``->`` //PTyp//
+  |  |  **|**  | ``Arr`` //PTyp// //PTyp//
   |  |  **|**  | ``Dist`` //PTyp//
   |  |  **|**  | ``<`` //[TMember]// ``>``
   |  |  **|**  | ``{`` //[TMember1]// ``}``
   |  |  **|**  | ``forall`` //Ident// ``.`` //PTyp//
-  |  |  **|**  | ``my`` //Ident// ``.`` //PTyp//
   | //TMember// | -> | //Ident// ``:`` //PTyp//
   | //[TMember]// | -> | **eps**
   |  |  **|**  | //TMember//
