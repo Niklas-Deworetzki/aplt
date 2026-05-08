@@ -1,5 +1,5 @@
 {-# LANGUAGE LambdaCase #-}
-module AST(convert, synth) where
+module AST(convert, typecheck) where
 
 import Control.Monad
 import Control.Monad.Trans.Reader
@@ -257,7 +257,7 @@ matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
 
 
 -- CONVERTER
-convert (Gen exps) = map convertExp exps
+convert (Gen exp) = convertExp exp
 
 convertExp = \case 
     PLet (Ident ident) e1 e2 -> Let ident (convertExp e1) (convertExp e2) 
