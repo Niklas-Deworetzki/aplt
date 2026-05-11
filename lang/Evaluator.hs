@@ -44,7 +44,7 @@ instance Show Value where
     , show v
     , "]"
     ]
-  show (VDist (Distr v)) = "<distribution value>"
+  show (VDist d) = "<distribution value>"
   show (VExpr e) = "(" ++ show e ++ ")"
 
 x = iterInstances $ TProd [("n", TNat), ("b", TBool), ("s", TSum [("a", TProd []), ("b", TProd [])])]
