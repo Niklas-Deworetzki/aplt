@@ -14,6 +14,7 @@ PPlus.		PExp2 ::= PExp2 "+" PExp3;
 
 PReturn.	PExp3 ::= "return" PExp4;
 PDistr.		PExp3 ::= "distr" PTyp;
+PDistr.		PExp3 ::= "distr" "(" PTyp ")" ;
 PProj.		PExp5 ::= PExp5 "." Ident;
 PAppT.		PExp5 ::= PExp6 "[" PTyp "]";
 
@@ -26,14 +27,8 @@ PApp.		PExp6 ::= PExp6 PExp7;
 PVar. 		PExp7 ::= Ident;
 PBoolT.		PExp7 ::= "True";
 PBoolF.		PExp7 ::= "False";
-<<<<<<< HEAD
 PZero.      PExp7 ::= "Z"; 
 PSucc.      PExp7 ::= "S" "(" PExp7 ")"; 
-=======
-PVar. 		PExp7 ::= Ident;
-PZero.    PExp7 ::= "Z"; 
-PSucc.    PExp7 ::= "S" "(" PExp7 ")"; 
->>>>>>> refs/remotes/origin/main
 
 
 -- PPar.		PExp7 ::= "(" PExp ")";
