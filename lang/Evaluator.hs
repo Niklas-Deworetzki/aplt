@@ -53,8 +53,12 @@ type Env = [(Name, Value)]
 
 type Eval = Reader Env
 
-evaluate :: Expr -> Value
-evaluate e = runReader (eval e) []
+evaluate :: Maybe Int -> Expr ->  [Value]
+evaluate arg e = case runReader (eval e) [] of 
+    v@(VDist d) -> (maybe observeAll observeMany arg) d
+    e -> [e]
+
+
 
 withEnv :: Name -> Value -> Eval a -> Eval a
 withEnv x v = local ((x, v) :)
