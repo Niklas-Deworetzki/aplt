@@ -10,7 +10,7 @@ import Data.List(intercalate)
 
 import AST
 
-type Distr t = Logic t 
+type Distr t = Logic t
 
 fromList :: [a] -> Logic a
 fromList xs = LogicT $ \cons nil -> foldr cons nil xs
@@ -44,20 +44,17 @@ instance Show Value where
     , show v
     , "]"
     ]
-  show (VDist d) = "<distribution value>"
+  show (VDist _) = "<distribution value>"
   show (VExpr e) = "(" ++ show e ++ ")"
-
-x = iterInstances $ TProd [("n", TNat), ("b", TBool), ("s", TSum [("a", TProd []), ("b", TProd [])])]
 
 type Env = [(Name, Value)]
 
 type Eval = Reader Env
 
 evaluate :: Maybe Int -> Expr ->  [Value]
-evaluate arg e = case runReader (eval e) [] of 
-    v@(VDist d) -> (maybe observeAll observeMany arg) d
-    e -> [e]
-
+evaluate arg e = case runReader (eval e) [] of
+    (VDist d) -> maybe observeAll observeMany arg d
+    v -> [v]
 
 
 withEnv :: Name -> Value -> Eval a -> Eval a
@@ -131,6 +128,7 @@ iterInstances :: Type -> Distr Value
 iterInstances TBool = fromList $ VBool <$> [True, False]
 iterInstances TNat = fromList $ VInt <$> [0..]
 iterInstances (TSum cs) = interleaveN [VSum l <$> iterInstances t | (l, t) <- cs]
+iterInstances (TProd []) = return $ VProd []
 iterInstances (TProd cs) =
   let names = map fst cs
       instances = fairProduct $ map (iterInstances . snd) cs
