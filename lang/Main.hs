@@ -9,6 +9,8 @@ import Evaluator
 
 run :: String -> [String] -> IO ()
 run s args = do
+  -- "s" is a program in surface syntax
+  --print s
   case pGen (myLexer s) of
   -- pGen comes from BCNF generated stuff. 
     Left err  -> do
@@ -18,6 +20,8 @@ run s args = do
         exitFailure
     Right tree -> do 
        let cTree = convert tree
+       -- cTree is our abstract syntax representation
+       -- print cTree
        -- converts parsed tree to the haskell AST. 
        case typecheck cTree of 
           Left message -> do
