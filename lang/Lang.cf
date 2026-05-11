@@ -1,20 +1,10 @@
 entrypoints Gen ;
 Gen. Gen ::= PExp ; 
 
--- Data. Tdef :: = "%data" Ident [Tbind] "=" [Cdef] ;
-
-
--- terminator Tdef ";" ;
-
---VdefQ.  Vdef ::= Ident "::" PTyp "=" PExp ;
--- separator nonempty Vdef ";" ;
-
- 
-
-
+-- The following code translates the stuff you type (surface syntax) to Haskell AST (abstract syntax, as defined in AST.hs)
 PLet.		PExp ::= Ident "=" PExp1 "in" PExp;
-PBind.		PExp ::= Ident "~" PExp1 "in" PExp;
-PIf.    PExp     ::= "if" PExp "then" PExp "else" PExp ;
+PBind.	PExp ::= Ident "~" PExp1 "in" PExp;
+PIf.    PExp ::= "if" PExp "then" PExp "else" PExp ;
 PGuard. PExp ::= "filter" PExp6 "in" PExp;
 
 PLambda.	PExp1 ::= "\\" Ident "::" PTyp "->" PExp1;

@@ -10,6 +10,7 @@ import Evaluator
 run :: String -> [String] -> IO ()
 run s args = do
   case pGen (myLexer s) of
+  -- pGen comes from BCNF generated stuff. 
     Left err  -> do
         hPutStrLn stderr "Syntax error:"
         hPutStrLn stderr err
@@ -17,10 +18,10 @@ run s args = do
         exitFailure
     Right tree -> do 
        let cTree = convert tree
+       -- converts parsed tree to the haskell AST. 
        case typecheck cTree of 
-          Left _ -> do
-            hPutStrLn stderr "TYPE ERROR"
-            -- hPutStrLn stderr err2
+          Left message -> do
+            hPutStrLn stderr message
           Right t -> do 
             let arg = if null args then Nothing else Just (read (head args))
             let v = evaluate arg cTree
