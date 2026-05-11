@@ -1,3 +1,4 @@
+# Generated in the PLT course by Katya. 
 GHC        = ghc
 HAPPY      = happy
 HAPPY_OPTS = --info --ghc --coerce
@@ -12,6 +13,7 @@ all : int
 # Rules for building the parser.
 lang/Lang/Abs.hs lang/Lang/Lex.hs lang/Lang/Par.hs lang/Lang/Print.hs lang/Lang/Test.hs: lang/Lang.cf
 	cd lang && bnfc -d Lang.cf
+	# The above line translates the grammer to the haskell file. 
 %.hs : lang/Lang/%.y
 	${HAPPY} ${HAPPY_OPTS} $<
 %.hs : lang/Lang/%.x
