@@ -3,27 +3,23 @@ module Evaluator where
 
 import Control.Monad
 import Control.Monad.Reader
+import Control.Monad.Logic
 import Data.Bifunctor
 import Data.Maybe(fromJust)
+import Data.List(intercalate)
 
 import AST
 
-type Distr t = [t]
+type Distr t = Logic t
+
+fromList :: [a] -> Logic a
+fromList xs = LogicT $ \cons nil -> foldr cons nil xs
 
 interleaveN :: [Distr a] -> Distr a
-interleaveN [] = []
-interleaveN (xs:xss) = case xs of
-  [] -> interleaveN xss
-  (y:ys) -> y : interleaveN (xss ++ [ys])
+interleaveN = foldr interleave mempty
 
-interleave :: Distr a -> Distr a -> Distr a
-interleave as bs = interleaveN [as, bs]
-
-fairProduct :: [[a]] -> [[a]]
-fairProduct [] = [[]]
-fairProduct (xs:xss) =
-  interleaveN [ map (x:) (fairProduct xss)
-              | x <- xs ]
+fairProduct :: [Distr a] -> Distr [a]
+fairProduct = sequence
 
 data Value
   = VBool Bool
@@ -32,7 +28,26 @@ data Value
   | VSum Name Value
   | VDist (Distr Value)
   | VExpr Expr
-  deriving Show
+
+instance Show Value where
+  show (VBool v) = show v
+  show (VInt v) = show v
+  show (VProd vs) = concat
+    [ "<"
+    , intercalate ", " [k ++ "·" ++ show v | (k, v) <- vs]
+    , ">"
+    ]
+  show (VSum k v) = concat
+    [ "["
+    , k
+    , "·"
+    , show v
+    , "]"
+    ]
+  show (VDist _) = "<distribution value>"
+  show (VExpr e) = "(" ++ show e ++ ")"
+
+x = iterInstances $ TProd [("n", TNat), ("b", TBool), ("s", TSum [("a", TProd []), ("b", TProd [])])]
 
 type Env = [(Name, Value)]
 
@@ -90,7 +105,7 @@ eval (Guard p e) = do
   p' <- eval p
   case p' of
     VBool True -> eval e
-    VBool False -> return $ VDist []
+    VBool False -> return $ VDist mempty
 eval (Plus e1 e2) = do
   e1' <- eval e1
   e2' <- eval e2
@@ -106,13 +121,13 @@ findCase ((Pattern n x e):ps) name =
   if n == name then (x, e) else findCase ps name
 
 iterInstances :: Type -> Distr Value
-iterInstances TBool = map VBool [True, False]
-iterInstances TNat = map VInt [0..]
-iterInstances (TSum cs) = concat [[VSum l i | i <- iterInstances t] | (l, t) <- cs]
+iterInstances TBool = fromList $ map VBool [True, False]
+iterInstances TNat = fromList $ map VInt [0..]
+iterInstances (TSum cs) = interleaveN [VSum l <$> iterInstances t | (l, t) <- cs]
 iterInstances (TProd cs) =
   let names = map fst cs
       instances = fairProduct $ map (iterInstances . snd) cs
-  in map (VProd . zip names) instances
+  in VProd . zip names <$> instances
 
 substT :: Name -> Type -> Expr -> Expr
 substT r tau = \case
