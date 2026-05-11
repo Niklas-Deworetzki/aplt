@@ -225,7 +225,7 @@ isDistT _ = mzero
 
 distType :: Type -> Check ()
 distType TBool = return ()
--- distType (TInd x t) = withDelta x $ distType t
+distType TNat = return ()
 distType (TSum ss)  = forM_ ss $ distType . snd
 distType (TProd ps) = forM_ ps $ distType . snd
 distType (TVar x) = delta >>= guard . elem x
@@ -292,6 +292,7 @@ convertExp = \case
 
 convertType = \case
     PTBool -> TBool
+    PTNat -> TNat
     PTVar (Ident ident) -> TVar ident
     PTArr t1 t2 -> TArr (convertType t1) (convertType t2)
     PTDist t -> TDist (convertType t)
