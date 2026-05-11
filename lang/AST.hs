@@ -92,6 +92,8 @@ instance Eq Type where
   t1 == t2 = matchTypes [] t1 t2
 
 type Check = ReaderT (Gamma, Delta) Maybe
+-- Gamma contains term variables, Delta type variables.
+-- Check a can read Gamma and Delta and returns Maybe a. 
 
 type Gamma = [(Name, Type)]
 type Delta = [Name]
@@ -263,6 +265,8 @@ matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
 
 
 -- CONVERTER
+-- Niklas wrote typechecker before grammar. 
+-- This translates BFC datatypes to our datatypes (defined on top of this file)
 convert (Gen exp) = convertExp exp
 
 convertExp = \case
