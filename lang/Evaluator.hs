@@ -16,7 +16,7 @@ fromList :: [a] -> Logic a
 fromList xs = LogicT $ \cons nil -> foldr cons nil xs
 
 interleaveN :: [Distr a] -> Distr a
-interleaveN = foldr interleave mempty
+interleaveN = msum
 
 fairProduct :: [Distr a] -> Distr [a]
 fairProduct = sequence
@@ -121,8 +121,8 @@ findCase ((Pattern n x e):ps) name =
   if n == name then (x, e) else findCase ps name
 
 iterInstances :: Type -> Distr Value
-iterInstances TBool = fromList $ map VBool [True, False]
-iterInstances TNat = fromList $ map VInt [0..]
+iterInstances TBool = fromList $ VBool <$> [True, False]
+iterInstances TNat = fromList $ VInt <$> [0..]
 iterInstances (TSum cs) = interleaveN [VSum l <$> iterInstances t | (l, t) <- cs]
 iterInstances (TProd cs) =
   let names = map fst cs
