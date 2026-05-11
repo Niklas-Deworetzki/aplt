@@ -22,18 +22,12 @@ PSum.		PExp6 ::= "inj" PTyp "{" PLabExp "}";
 PCase.		PExp6 ::= "case" PExp "of" PTyp "{" [PCaseExp] "}";
 PRec.       PExp6 ::= "iter" "{" PExp ";" Ident ";" PExp "}" "(" PExp7 ")" ;
 PApp.		PExp6 ::= PExp6 PExp7;   
+PVar. 		PExp6 ::= Ident;
 
-PVar. 		PExp7 ::= Ident;
 PBoolT.		PExp7 ::= "True";
 PBoolF.		PExp7 ::= "False";
-<<<<<<< HEAD
 PZero.      PExp7 ::= "Z"; 
 PSucc.      PExp7 ::= "S" "(" PExp7 ")"; 
-=======
-PVar. 		PExp7 ::= Ident;
-PZero.    PExp7 ::= "Z"; 
-PSucc.    PExp7 ::= "S" "(" PExp7 ")"; 
->>>>>>> refs/remotes/origin/main
 
 
 -- PPar.		PExp7 ::= "(" PExp ")";
