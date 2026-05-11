@@ -24,7 +24,7 @@ run s args = do
           Right t -> do 
             let arg = if null args then Nothing else Just (read (head args))
             let v = evaluate arg cTree
-            mapM_ (hPutStrLn stdout . show) v
+            if null v then hPutStrLn stdout "No values in the distribution" else mapM_ (hPutStrLn stdout . show) v
             
        
 
