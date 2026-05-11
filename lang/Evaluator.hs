@@ -103,8 +103,10 @@ eval (Distr t) =
   return $ VDist $ iterInstances t
 eval (Bind x e1 e2) = eval e1 >>= \case
   (VDist d) -> do
+    let unval = \(VDist d) -> d
     let f = \sample -> withEnv x sample $ eval e2
-    VDist <$> traverse f d
+    d' <- traverse f d
+    return $ VDist $ msum $ unval <$> d'
 eval (Guard p e) = do
   p' <- eval p
   case p' of
