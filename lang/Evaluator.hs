@@ -60,7 +60,7 @@ evaluate arg e = case runReader (eval e) [] of
 withEnv :: Name -> Value -> Eval a -> Eval a
 withEnv x v = local ((x, v) :)
 
-
+eval :: Expr -> Eval Value
 eval (Var x) =
   asks (fromJust . lookup x)
 eval (Let x e1 e2) = do
