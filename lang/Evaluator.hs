@@ -128,6 +128,7 @@ iterInstances :: Type -> Distr Value
 iterInstances TBool = fromList $ VBool <$> [True, False]
 iterInstances TNat = fromList $ VInt <$> [0..]
 iterInstances (TSum cs) = interleaveN [VSum l <$> iterInstances t | (l, t) <- cs]
+iterInstances (TProd []) = return $ VProd []
 iterInstances (TProd cs) =
   let names = map fst cs
       instances = fairProduct $ map (iterInstances . snd) cs
