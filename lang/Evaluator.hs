@@ -38,11 +38,11 @@ instance Show Value where
     , ">"
     ]
   show (VSum k v) = concat
-    [ "["
+    [ "{"
     , k
     , "·"
     , show v
-    , "]"
+    , "}"
     ]
   show (VDist _) = "<distribution value>"
   show (VExpr e) = "(" ++ show e ++ ")"

@@ -4,7 +4,7 @@ HAPPY      = happy
 HAPPY_OPTS = --info --ghc --coerce
 ALEX       = alex
 ALEX_OPTS  = --ghc
-files = lang/Main.hs lang/Lang.cf lang/Lang/Abs.hs lang/Lang/Lex.hs lang/Lang/Par.hs lang/Lang/Print.hs lang/Lang/Test.hs
+files = lang/Main.hs lang/AST.hs lang/Evaluator.hs lang/Lang.cf lang/Lang/Abs.hs lang/Lang/Lex.hs lang/Lang/Par.hs lang/Lang/Print.hs lang/Lang/Test.hs
 
 # List of goals not corresponding to file names.
 .PHONY : all clean distclean
