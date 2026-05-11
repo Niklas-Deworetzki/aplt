@@ -10,10 +10,20 @@ import AST
 
 type Distr t = [t]
 
+interleaveN :: [Distr a] -> Distr a
+interleaveN [] = []
+interleaveN (xs:xss) = case xs of
+  [] -> interleaveN xss
+  (y:ys) -> y : interleaveN (xss ++ [ys])
+
 interleave :: Distr a -> Distr a -> Distr a
-interleave (a:as) (b:bs) = a : b : interleave as bs
-interleave [] bs = bs
-interleave as [] = as
+interleave as bs = interleaveN [as, bs]
+
+fairProduct :: [[a]] -> [[a]]
+fairProduct [] = [[]]
+fairProduct (xs:xss) =
+  interleaveN [ map (x:) (fairProduct xss)
+              | x <- xs ]
 
 data Value
   = VBool Bool
@@ -101,11 +111,8 @@ iterInstances TNat = map VInt [0..]
 iterInstances (TSum cs) = concat [[VSum l i | i <- iterInstances t] | (l, t) <- cs]
 iterInstances (TProd cs) =
   let names = map fst cs
-      instances = cartesian $ map (iterInstances . snd) cs
-  in map (VProd . (zip names)) instances
-
-cartesian :: [[a]] -> [[a]]
-cartesian xs = _
+      instances = fairProduct $ map (iterInstances . snd) cs
+  in map (VProd . zip names) instances
 
 substT :: Name -> Type -> Expr -> Expr
 substT r tau = \case
@@ -139,7 +146,7 @@ substT r tau = \case
   (Case e t ps) ->
     let e' = substT r tau e
         t' = subst r tau t
-        ps' = map (\(Pattern a b e) -> Pattern a b $ substT r tau e) ps
+        ps' = map (\(Pattern a b ec) -> Pattern a b $ substT r tau ec) ps
     in Case e' t' ps'
   (If c t f) ->
     let c' = substT r tau c
