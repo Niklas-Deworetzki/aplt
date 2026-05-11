@@ -28,8 +28,8 @@ PApp.		PExp6 ::= PExp6 PExp7;
 PBoolT.		PExp7 ::= "True";
 PBoolF.		PExp7 ::= "False";
 PVar. 		PExp7 ::= Ident;
-PZero.      PExp7 ::= "Z"; 
-PSucc.      PExp7 ::= "S" "(" PExp7 ")"; 
+PZero.    PExp7 ::= "Z"; 
+PSucc.    PExp7 ::= "S" "(" PExp7 ")"; 
 
 
 -- PPar.		PExp7 ::= "(" PExp ")";

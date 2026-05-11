@@ -1,4 +1,5 @@
-x ~ distr Bool in (if x then Z else (S Z))
+--x ~ distr Bool in (if x then Z else (S Z))
+(if True then Z else (S Z))
 
 -- do 
 --  x <- distr Bool 

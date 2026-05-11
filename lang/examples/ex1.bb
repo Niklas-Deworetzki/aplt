@@ -8,3 +8,8 @@ ThreeW : <L1: {A : <>  | B : <>  | C : <>  | D : <>  | E : <>  | F : <> }, L2 : 
 } 
 
 -- distr < L1 : True , L2 : False >  
+-- Suppose 
+-- Letters = A | B | C |D |E |F
+-- Words = oneW Letters | twoW Letters Letters | threeW Letters Letters Letters 
+-- The above example then does this. 
+

@@ -79,7 +79,7 @@ data Type
 
   -- ind types are dead
   -- | TInd Name Type
-  | TSum [(Name, Type)]
+  | TSum  [(Name, Type)]
   | TProd [(Name, Type)]
 
   | TAll Name Type
