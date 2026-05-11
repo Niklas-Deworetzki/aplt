@@ -1,3 +1,15 @@
+Installation requirements:
+bnfc
+haskell 
+
+to install: 
+run "make" in the top directory. 
+
+to run examples:
+run "./int <lang/examples/exn.bb" where n in [1,2,3,4,5]
+
+
+some explanation of the file structure:
 The translation of some code in the bb language to haskell AST happens using Lang.cf, which is called by a bnf converter in MakeFile (which is in the main directory). This generates some files, which we ignore. 
 
 
