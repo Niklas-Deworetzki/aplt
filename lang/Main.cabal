@@ -42,6 +42,8 @@ executable int
     Lang.Lex
     Lang.Par
     Lang.Print
+    AST
+    Evaluator
   autogen-modules:
     Lang.Abs
     Lang.Lex
@@ -66,7 +68,9 @@ executable int
     , mtl        >= 2.2.2    && < 2.4
     , process    >= 1.6.5.0   && < 1.7
     , filepath >= 1.4 && <1.5
+    , transformers >= 0.5.5.2
     , template-haskell
+    , logict
 
   ghc-options:
     -Wall
@@ -82,3 +86,4 @@ executable int
    -- that come in the last Stackage LTS (14.27) for GHC 8.6.5.
     , alex:alex   >= 3.2.5   && < 3.6
     , happy:happy >= 1.19.12 && < 2.2
+    

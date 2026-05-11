@@ -10,7 +10,7 @@ import Data.List(intercalate)
 
 import AST
 
-type Distr t = Logic t
+type Distr t = Logic t 
 
 fromList :: [a] -> Logic a
 fromList xs = LogicT $ \cons nil -> foldr cons nil xs
@@ -44,7 +44,7 @@ instance Show Value where
     , show v
     , "]"
     ]
-  show (VDist _) = "<distribution value>"
+  show (VDist (Distr v)) = "<distribution value>"
   show (VExpr e) = "(" ++ show e ++ ")"
 
 x = iterInstances $ TProd [("n", TNat), ("b", TBool), ("s", TSum [("a", TProd []), ("b", TProd [])])]
@@ -53,10 +53,13 @@ type Env = [(Name, Value)]
 
 type Eval = Reader Env
 
+evaluate :: Expr -> Value
+evaluate e = runReader (eval e) []
+
 withEnv :: Name -> Value -> Eval a -> Eval a
 withEnv x v = local ((x, v) :)
 
-eval :: Expr -> Eval Value
+
 eval (Var x) =
   asks (fromJust . lookup x)
 eval (Let x e1 e2) = do
