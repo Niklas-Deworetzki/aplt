@@ -10,7 +10,7 @@ import Evaluator
 run :: String -> [String] -> IO ()
 run s args = do
   -- "s" is a program in surface syntax
-  --print s
+  --print $ "content of file" ++ s
   case pGen (myLexer s) of
   -- pGen comes from BCNF generated stuff. 
     Left err  -> do
@@ -21,9 +21,10 @@ run s args = do
     Right tree -> do 
        let cTree = convert tree
        -- cTree is our abstract syntax representation
-       print cTree
+       print $ "AST corresponding to file: " cTree
        -- converts parsed tree to the haskell AST. 
        case typecheck cTree of 
+       -- TODO replace with typeCheck after refactoring
           Left message -> do
             hPutStrLn stderr message
           Right t -> do 

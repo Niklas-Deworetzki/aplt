@@ -19,23 +19,23 @@ PProj.		PExp5 ::= PExp5 "." Ident;
 PAppT.		PExp5 ::= PExp6 "[" PTyp "]";
 
 PProd.		PExp6 ::= "<" [PLabExp] ">";
-PSum.		PExp6 ::= "inj" PTyp "{" PLabExp "}";
+PSum.		  PExp6 ::= "inj" PTyp "{" PLabExp "}";
 PCase.		PExp6 ::= "case" PExp "of" PTyp "{" [PCaseExp] "}";
-PRec.       PExp6 ::= "iter" "{" PExp ";" Ident ";" PExp "}" "(" PExp7 ")" ;
-PApp.		PExp6 ::= PExp6 PExp7;   
+PRec.     PExp6 ::= "iter" "{" PExp ";" Ident ";" PExp "}" "(" PExp7 ")" ;
+PApp.		  PExp6 ::= PExp6 PExp7;   
 PVar. 		PExp6 ::= Ident;
 
 PBoolT.		PExp7 ::= "True";
 PBoolF.		PExp7 ::= "False";
-PZero.      PExp7 ::= "Z"; 
-PSucc.      PExp7 ::= "S" "(" PExp7 ")"; 
+PZero.    PExp7 ::= "Z"; 
+PSucc.    PExp7 ::= "S" "(" PExp7 ")"; 
 
 
--- PPar.		PExp7 ::= "(" PExp ")";
+-- PPar.  PExp7 ::= "(" PExp ")";
 
 coercions PExp 7;
 
-PLabExp. PLabExp ::= Ident ":" PExp;
+PLabExp.  PLabExp ::= Ident ":" PExp;
 separator PLabExp ",";
 
 PCaseExp. PCaseExp ::= Ident Ident "->" PExp;

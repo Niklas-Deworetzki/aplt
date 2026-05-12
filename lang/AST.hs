@@ -92,13 +92,12 @@ instance Eq Type where
 matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
 matchTypes _ TBool TBool = True
 matchTypes _ TNat TNat = True
-matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes ms la ra && matchTypes ms lr rr
-matchTypes ms (TDist l) (TDist r) = matchTypes ms l r
-matchTypes ms (TProd ls) (TProd rs) = matchLabels ms ls rs
-matchTypes ms (TSum ls)  (TSum rs)  = matchLabels ms ls rs
--- matchTypes ms (TInd lx lt) (TInd rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
-matchTypes ms (TAll lx lt) (TAll rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
-matchTypes ms (TVar l) (TVar r) = lookup l ms == Just r
+matchTypes ms (TVar l)     (TVar r)     = lookup l ms == Just r
+matchTypes ms (TDist l)    (TDist r)    = matchTypes  ms l r
+matchTypes ms (TProd ls)   (TProd rs)   = matchLabels ms ls rs
+matchTypes ms (TSum  ls)   (TSum  rs)   = matchLabels ms ls rs
+matchTypes ms (TAll lx lt) (TAll rx rt) = matchTypes  ((lx , rx) : ms) lt rt
+matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes  ms la ra && matchTypes ms lr rr
 matchTypes _ _ _ = False
 
 matchLabels :: [(Name, Name)] -> [(Name, Type)] -> [(Name, Type)] -> Bool
@@ -154,7 +153,7 @@ tryWithMessage Nothing  s = throwError s
 tryWithMessage (Just x) _ = pure x
 
 varNotFoundMsg :: Name -> Gamma -> String
-varNotFoundMsg x ctx = "error: variable " ++ show x ++ " not found in context" ++ show ctx
+varNotFoundMsg x ctx = "We expected the term " ++ show x ++ " to be in the termcontext " ++ show ctx ++ "but it's not."
 
 lookupTypeDeclaration :: Name -> TypeCheck Type
 lookupTypeDeclaration varName = do 
@@ -163,6 +162,13 @@ lookupTypeDeclaration varName = do
     let errorMsg  = varNotFoundMsg varName ctxt
     tryWithMessage varLookup errorMsg
 
+isDeclaredType :: Name -> TypeCheck ()
+isDeclaredType t = do 
+  types <- asks typeVars 
+  let isDeclared = elem t types
+  unless isDeclared $ throwError $ 
+   "We expected the type " ++ show t ++ " to be in the typecontext " ++ show types ++ " but it's not."
+
 lookupGamma :: Name -> Check Type
 lookupGamma x = do
   g <- gamma
@@ -170,6 +176,7 @@ lookupGamma x = do
 
 putTermInContext :: Name -> Type -> Context -> Context 
 putTermInContext x t (Ctxt types terms) = Ctxt types ((x, t) : terms)
+-- DANGER what about alpha-conversion. We could now have added the same variable twice.
 
 putTypeInContext :: Name -> Context -> Context
 putTypeInContext t (Ctxt types terms) = Ctxt (t : types) terms
@@ -194,6 +201,96 @@ typecheck e = case runReaderT (synth e) ([], []) of
   Just t -> Right t
   Nothing -> Left "type error"
 
+{-- WIP on rewriting typechecker with actual error messages.
+synthesizeType :: Expr -> TypeCheck Type
+synthesizeType (Var t) = lookupTypeDeclaration t
+synthesizeType (Let x e1 e2) = do 
+  t1 <- synthesizeType e1
+  withTermVar x t1 $ synthesizeType e2
+synthesizeType (Lambda x t e) = do 
+  isAType t
+  t' <- withTermVar x t $ synthesizeType e
+  return $ TArr t t'
+synthesizeType (App f a) = do 
+  fType <- synthesizeType f 
+  case fType of 
+    (TArr t1 t2) -> exprHasType a t1 >> return t2
+    _ -> throwError "We want to apply the expression " ++ show f ++ " but we think it is not a function type."
+synthesizeType (LambdaT x e) = do 
+  t <- withTypeVar x $ synth e
+  return $ TAll x t
+synthesizeType (AppT t e) = do 
+-- DANGER is this not flipped from the book? shouldn't AppT take first 
+  isAType t
+  eType <- synthesizeType e
+  case eType of 
+    (TAll x t') -> return $ substType x t t'
+    _ -> throwError $ "We wanted to apply the type" ++ show e
+
+--  (AppT t e) -> do
+--    okType t
+--    (TAll x t') <- synth e
+--    return $ substType x t t'
+--  (Prod es) ->
+--    TProd <$> forM es (secondM synth)
+--  (Proj k e) -> do
+--    (TProd ts) <- synth e
+--    lift $ lookup k ts
+--  (Sum t x e) -> do
+--    okType t -- t has to be a type
+--    let TSum ss = t -- and a sum type
+--    tk <- lift (lookup x ss)
+--    check e tk
+--    return t
+--  (Case e t ps) -> do
+--    okType t
+--    (TSum ss) <- synth e -- scrutinized must be sum
+--    guard $ sort [l | Pattern l _ _ <- ps] == sort (map fst ss) -- check that sum and patterns have same labels
+--    -- for each pattern, bind to var and check exp for given type
+--    forM_ ps $ \(Pattern lk xk ek) -> do
+--      withGamma xk (fromJust $ lookup lk ss) $ check ek t
+--    return t
+--  (LitBool _) -> return TBool
+--  (If c t f) -> do
+--    check c TBool
+--    tau <- synth t
+--    check f tau
+--    return tau
+--  Zero -> return TNat
+--  (Succ e) -> check e TNat >> return TNat
+--  (Iter eb x ei e) -> do
+--    check e TNat
+--    tau <- synth eb
+--    withGamma x tau $ check ei tau
+--    return tau
+--  {-(Fold t tau e) -> do
+--    let tind = TInd t tau
+--    okType tind
+--    check e $ substType t tind tau
+--    return tind
+--  (Rec t tau tauR x e1 e2) -> do
+--    let tind = TInd t tau
+--    okType tind
+--    check e2 tind
+--    withGamma x (substType t tauR tau) $ check e1 tauR
+--    return tauR -}
+--  (Distr t) -> do
+--    distType t
+--    return $ TDist t
+--  (Bind x e1 e2) -> do
+--    (TDist t) <- synth e1
+--    withGamma x t $ synth e2 >>= isDistT
+--  (Guard p e) -> do
+--    check p TBool
+--    synth e >>= isDistT
+--  (Plus e1 e2) -> do
+--    t <- synth e1
+--    void $ isDistT t
+--    check e2 t
+--    return t
+--  (Return e) ->
+--    TDist <$> synth e
+--    --}
 
 
 synth :: Expr -> Check Type
@@ -288,6 +385,18 @@ exprHasType e supposedType = do
   unless (realType == supposedType) $ throwError $ 
     (show e) ++ " should have type " ++ (show supposedType) ++ " but has type " ++ (show realType) ++ " which we think aren't equal."
 
+
+isAType :: Type -> TypeCheck () 
+isAType (TVar t)     = isDeclaredType t
+isAType (TAll x t)   = withTypeVar x $ isAType t
+isAType (TSum ss)    = forM_ ss $ isAType . snd
+isAType (TProd ps)   = forM_ ps $ isAType . snd
+isAType (TArr t1 t2) = isAType t1 >> isAType t2
+isAType (TDist t)    = isAType t 
+isAType TBool        = return ()
+isAType TNat         = return ()
+
+
 okType :: Type -> Check ()
 okType (TVar x) = delta >>= guard . elem x
 -- okType (TInd x t) = withDelta x $ okType t
@@ -298,6 +407,10 @@ okType (TArr t1 t2) = okType t1 >> okType t2
 okType (TDist t) = okType t 
 okType TBool = return ()
 okType TNat = return ()
+
+isTDist :: Type -> TypeCheck Type
+isTDist (TDist t) = return $ TDist t
+isTDist t = throwError $ "We excpected" ++ (show t) ++ " to be of the form TDist t, but it's not."
 
 isDistT :: Type -> Check Type
 isDistT (TDist t) = return $ TDist t
@@ -318,8 +431,8 @@ isDistType (TSum ss)  = forM_ ss $ isDistType . snd
 isDistType (TProd ps) = forM_ ps $ isDistType . snd
 isDistType (TVar t) = do 
   types <- asks typeVars 
-  let isdeclared = elem t types
-  unless isdeclared $ throwError $ 
+  let isDeclared = elem t types
+  unless isDeclared $ throwError $ 
    "We expected " ++ show t ++ " to be in the typecontext " ++ show types ++ ", but it's not (this came up when checking it's a disttype, not sure that should happen in the first place)."
 
 isDistType t = throwError $ "We expected " ++ show t ++ "to be a distType, but it's not"
@@ -358,6 +471,7 @@ convertExp = \case
     PDistr t -> Distr (convertType t)
     PProj e (Ident ident) -> Proj ident (convertExp e)
     PAppT e t -> AppT (convertType t) (convertExp e)
+    -- DANGER: why do the arguments switch. 
     PProd es -> Prod (map (\(PLabExp (Ident ident) e) -> (ident, convertExp e)) es)
     PSum t (PLabExp (Ident ident) e) -> Sum (convertType t) ident (convertExp e)
     PCase e t patts -> Case (convertExp e) (convertType t) (map convertPattern patts)

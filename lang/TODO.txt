@@ -1,10 +1,13 @@
 some stuff needs to be proven. 
 - preservation 
 - replace the Maybe in Check with Either String
-- for some reason, types cannot have brackets in them. This is a problem ([
 
 weird stuff I encountered:
-- secondM copied in AST.hs, why no import (fix after typeChecker fix with more informative errors)
+- secondM copied in AST.hs, why no import?
 - subst is used for type substitution where is the term substitution? 
 - variable types have distributions. Is that correct?  Maybe I can test this by using an interesting recursive datatype? 
 - in the pdf, what does the intersection symbol mean in the dynamics of Plus? 
+- how did we deal with declaring one name twice again? Should be a test. 
+- synthesizing and inference had some interplay right?
+- in synthesizing AppT, I think the roles of the arguments were switched (this also occurs in convertExp)
+- The fresh variable thing didn't come back, maybe ask JP about it
