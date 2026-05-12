@@ -31,9 +31,9 @@ The reserved words used in Lang are the following:
 The symbols used in Lang are the following:
   | = | ~ | \ | ::
   | -> | /\ | => | +
-  | . | [ | ] | <
-  | > | { | } | ;
-  | ( | ) | : | ,
+  | ( | ) | . | [
+  | ] | < | > | {
+  | } | ; | : | ,
   | | |  |  |
 
 ===Comments===
@@ -47,17 +47,18 @@ All other symbols are terminals.
 
   | //Gen// | -> | //PExp//
   | //PExp// | -> | //Ident// ``=`` //PExp1// ``in`` //PExp//
-  |  |  **|**  | //Ident// ``~`` //PExp1// ``in`` //PExp//
-  |  |  **|**  | ``if`` //PExp// ``then`` //PExp// ``else`` //PExp//
+  |  |  **|**  | //Ident// ``~`` //PExp3// ``in`` //PExp//
   |  |  **|**  | ``filter`` //PExp6// ``in`` //PExp//
   |  |  **|**  | //PExp1//
-  | //PExp1// | -> | ``\`` //Ident// ``::`` //PTyp// ``->`` //PExp1//
-  |  |  **|**  | ``/\`` //Ident// ``=>`` //PExp1//
+  | //PExp1// | -> | ``if`` //PExp6// ``then`` //PExp1// ``else`` //PExp1//
   |  |  **|**  | //PExp2//
-  | //PExp2// | -> | //PExp2// ``+`` //PExp3//
+  | //PExp2// | -> | ``\`` //Ident// ``::`` //PTyp// ``->`` //PExp1//
+  |  |  **|**  | ``/\`` //Ident// ``=>`` //PExp1//
+  |  |  **|**  | //PExp2// ``+`` //PExp3//
   |  |  **|**  | //PExp3//
   | //PExp3// | -> | ``return`` //PExp4//
   |  |  **|**  | ``distr`` //PTyp//
+  |  |  **|**  | ``distr`` ``(`` //PTyp// ``)``
   |  |  **|**  | //PExp4//
   | //PExp5// | -> | //PExp5// ``.`` //Ident//
   |  |  **|**  | //PExp6// ``[`` //PTyp// ``]``
@@ -67,10 +68,10 @@ All other symbols are terminals.
   |  |  **|**  | ``case`` //PExp// ``of`` //PTyp// ``{`` //[PCaseExp]// ``}``
   |  |  **|**  | ``iter`` ``{`` //PExp// ``;`` //Ident// ``;`` //PExp// ``}`` ``(`` //PExp7// ``)``
   |  |  **|**  | //PExp6// //PExp7//
+  |  |  **|**  | //Ident//
   |  |  **|**  | //PExp7//
   | //PExp7// | -> | ``True``
   |  |  **|**  | ``False``
-  |  |  **|**  | //Ident//
   |  |  **|**  | ``Z``
   |  |  **|**  | ``S`` ``(`` //PExp7// ``)``
   |  |  **|**  | ``(`` //PExp// ``)``

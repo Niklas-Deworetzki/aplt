@@ -4,15 +4,13 @@ module AST where
 import Control.Monad
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.Class (lift)
+import Control.Monad.Error.Class
 import Data.Bifunctor
 import Data.Maybe(fromJust)
 import Data.List(sort, sortOn)
 import Lang.Abs
 
 type Name = String
-
--- forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
--- my t . Unit | Unit * t
 
 data Expr
   = Var Name
@@ -91,12 +89,55 @@ data Type
 instance Eq Type where
   t1 == t2 = matchTypes [] t1 t2
 
-type Check = ReaderT (Gamma, Delta) Maybe
+matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
+matchTypes _ TBool TBool = True
+matchTypes _ TNat TNat = True
+matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes ms la ra && matchTypes ms lr rr
+matchTypes ms (TDist l) (TDist r) = matchTypes ms l r
+matchTypes ms (TProd ls) (TProd rs) = matchLabels ms ls rs
+matchTypes ms (TSum ls)  (TSum rs)  = matchLabels ms ls rs
+-- matchTypes ms (TInd lx lt) (TInd rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
+matchTypes ms (TAll lx lt) (TAll rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
+matchTypes ms (TVar l) (TVar r) = lookup l ms == Just r
+matchTypes _ _ _ = False
+
+matchLabels :: [(Name, Name)] -> [(Name, Type)] -> [(Name, Type)] -> Bool
+matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
+  where f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
+
+type Check     = ReaderT (Gamma, Delta) Maybe
+type TypeCheck = ReaderT Context (Either String)
+
+-- Temporary measures to recast stuff
+pairToContext :: (Gamma, Delta) -> Context
+pairToContext (g , d) = Ctxt d g 
+
+contextToPair :: Context -> (Gamma , Delta)
+contextToPair (Ctxt d g) = (g ,d)
+
+maybeToEither :: Maybe a -> Either String a
+maybeToEither Nothing = Left "nothing"
+maybeToEither (Just a) = Right a
+
+checkToTypeCheck :: Check a -> TypeCheck a
+checkToTypeCheck (ReaderT f) = ReaderT ( maybeToEither . (f . contextToPair))
+-- end temporary measures
+
+
+--type Check = ReaderT (Gamma, Delta) (Either String)
 -- Gamma contains term variables, Delta type variables.
--- Check a can read Gamma and Delta and returns Maybe a. 
+-- Check a can read Gamma and Delta and returns Either an error message or a type
 
 type Gamma = [(Name, Type)]
 type Delta = [Name]
+
+data Context = Ctxt { typeVars :: TypeContext , termVars :: TermContext }
+
+type TermContext = [(Name , Type)]
+type TypeContext = [Name]
+
+emptyCtxt :: Context
+emptyCtxt = Ctxt [] []
 
 -- Taken from https://hackage-content.haskell.org/package/extra-1.8.1/docs/src/Data.Tuple.Extra.html#secondM
 secondM :: Functor m => (b -> m b') -> (a, b) -> m (a, b')
@@ -108,10 +149,36 @@ gamma = asks fst
 delta :: Check Delta
 delta = asks snd
 
+tryWithMessage :: Maybe a -> String -> TypeCheck a
+tryWithMessage Nothing  s = throwError s
+tryWithMessage (Just x) _ = pure x
+
+varNotFoundMsg :: Name -> Gamma -> String
+varNotFoundMsg x ctx = "error: variable " ++ show x ++ " not found in context" ++ show ctx
+
+lookupTypeDeclaration :: Name -> TypeCheck Type
+lookupTypeDeclaration varName = do 
+    ctxt <- asks termVars
+    let varLookup = lookup varName ctxt 
+    let errorMsg  = varNotFoundMsg varName ctxt
+    tryWithMessage varLookup errorMsg
+
 lookupGamma :: Name -> Check Type
 lookupGamma x = do
   g <- gamma
   maybe mzero return (lookup x g)
+
+putTermInContext :: Name -> Type -> Context -> Context 
+putTermInContext x t (Ctxt types terms) = Ctxt types ((x, t) : terms)
+
+putTypeInContext :: Name -> Context -> Context
+putTypeInContext t (Ctxt types terms) = Ctxt (t : types) terms
+
+withTermVar  :: Name -> Type -> TypeCheck a -> TypeCheck a
+withTermVar x t = local $ putTermInContext x t 
+
+withTypeVar :: Name -> TypeCheck a -> TypeCheck a
+withTypeVar t = local $ putTypeInContext t
 
 withGamma :: Name -> Type -> Check a -> Check a
 withGamma x t = local $ first ((x, t) :)
@@ -119,10 +186,15 @@ withGamma x t = local $ first ((x, t) :)
 withDelta :: Name -> Check a -> Check a
 withDelta t = local $ second (t :)
 
+typeCheck :: Expr -> Either String Type
+typeCheck e = runReaderT (checkToTypeCheck $ synth e) emptyCtxt
+
 typecheck :: Expr -> Either String Type
 typecheck e = case runReaderT (synth e) ([], []) of
   Just t -> Right t
   Nothing -> Left "type error"
+
+
 
 synth :: Expr -> Check Type
 synth exp = case exp of
@@ -144,7 +216,7 @@ synth exp = case exp of
   (AppT t e) -> do
     okType t
     (TAll x t') <- synth e
-    return $ subst x t t'
+    return $ substType x t t'
   (Prod es) ->
     TProd <$> forM es (secondM synth)
   (Proj k e) -> do
@@ -180,13 +252,13 @@ synth exp = case exp of
   {-(Fold t tau e) -> do
     let tind = TInd t tau
     okType tind
-    check e $ subst t tind tau
+    check e $ substType t tind tau
     return tind
   (Rec t tau tauR x e1 e2) -> do
     let tind = TInd t tau
     okType tind
     check e2 tind
-    withGamma x (subst t tauR tau) $ check e1 tauR
+    withGamma x (substType t tauR tau) $ check e1 tauR
     return tauR -}
   (Distr t) -> do
     distType t
@@ -210,6 +282,12 @@ check exp t = do
   t' <- synth exp
   guard $ t == t'
 
+exprHasType :: Expr -> Type -> TypeCheck ()
+exprHasType e supposedType = do 
+  realType <- checkToTypeCheck (synth e)
+  unless (realType == supposedType) $ throwError $ 
+    (show e) ++ " should have type " ++ (show supposedType) ++ " but has type " ++ (show realType) ++ " which we think aren't equal."
+
 okType :: Type -> Check ()
 okType (TVar x) = delta >>= guard . elem x
 -- okType (TInd x t) = withDelta x $ okType t
@@ -217,7 +295,7 @@ okType (TAll x t) = withDelta x $ okType t
 okType (TSum ss)  = forM_ ss $ okType . snd
 okType (TProd ps) = forM_ ps $ okType . snd
 okType (TArr t1 t2) = okType t1 >> okType t2
-okType (TDist t) = okType t
+okType (TDist t) = okType t 
 okType TBool = return ()
 okType TNat = return ()
 
@@ -233,33 +311,30 @@ distType (TProd ps) = forM_ ps $ distType . snd
 distType (TVar x) = delta >>= guard . elem x
 distType _ = mzero
 
-subst :: Name -> Type -> Type -> Type
-subst x s t = case t of
+isDistType :: Type -> TypeCheck ()
+isDistType TBool = return ()
+isDistType TNat = return ()
+isDistType (TSum ss)  = forM_ ss $ isDistType . snd
+isDistType (TProd ps) = forM_ ps $ isDistType . snd
+isDistType (TVar t) = do 
+  types <- asks typeVars 
+  let isdeclared = elem t types
+  unless isdeclared $ throwError $ 
+   "We expected " ++ show t ++ " to be in the typecontext " ++ show types ++ ", but it's not (this came up when checking it's a disttype, not sure that should happen in the first place)."
+
+isDistType t = throwError $ "We expected " ++ show t ++ "to be a distType, but it's not"
+
+substType :: Name -> Type -> Type -> Type
+substType x s t = case t of
   TBool -> TBool
   TNat -> TNat
-  (TDist t') -> TDist (subst x s t')
-  (TArr t1 t2) -> TArr (subst x s t1) (subst x s t2)
+  (TDist t') -> TDist (substType x s t')
+  (TArr t1 t2) -> TArr (substType x s t1) (substType x s t2)
   (TVar x') -> if x == x' then s else t
-  -- (TInd x' t') -> if x == x' then t else TInd x' (subst x s t')
-  (TAll x' t') -> if x == x' then t else TAll x' (subst x s t')
-  (TSum ss)  -> TSum  $ map (second $ subst x s) ss
-  (TProd ps) -> TProd $ map (second $ subst x s) ps
-
-matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
-matchTypes _ TBool TBool = True
-matchTypes _ TNat TNat = True
-matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes ms la ra && matchTypes ms lr rr
-matchTypes ms (TDist l) (TDist r) = matchTypes ms l r
-matchTypes ms (TProd ls) (TProd rs) = matchLabels ms ls rs
-matchTypes ms (TSum ls)  (TSum rs)  = matchLabels ms ls rs
--- matchTypes ms (TInd lx lt) (TInd rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
-matchTypes ms (TAll lx lt) (TAll rx rt) = let ms' = (lx, rx) : ms in matchTypes ms' lt rt
-matchTypes ms (TVar l) (TVar r) = lookup l ms == Just r
-matchTypes _ _ _ = False
-
-matchLabels :: [(Name, Name)] -> [(Name, Type)] -> [(Name, Type)] -> Bool
-matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
-  where f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
+  -- (TInd x' t') -> if x == x' then t else TInd x' (substType x s t')
+  (TAll x' t') -> if x == x' then t else TAll x' (substType x s t')
+  (TSum ss)  -> TSum  $ map (second $ substType x s) ss
+  (TProd ps) -> TProd $ map (second $ substType x s) ps
 
 
 
@@ -267,8 +342,10 @@ matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
 -- CONVERTER
 -- Niklas wrote typechecker before grammar. 
 -- This translates BFC datatypes to our datatypes (defined on top of this file)
+convert :: Gen -> Expr
 convert (Gen exp) = convertExp exp
 
+convertExp :: PExp -> Expr
 convertExp = \case
     PLet (Ident ident) e1 e2 -> Let ident (convertExp e1) (convertExp e2)
     PBind (Ident ident) e1 e2 -> Bind ident (convertExp e1) (convertExp e2)
@@ -294,6 +371,7 @@ convertExp = \case
 
     where convertPattern (PCaseExp (Ident ident1) (Ident ident2) e) = Pattern ident1 ident2 (convertExp e)
 
+convertType :: PTyp -> Type
 convertType = \case
     PTBool -> TBool
     PTNat -> TNat
@@ -308,6 +386,3 @@ convertType = \case
         convertMember = \case
             TMember (Ident ident) t -> (ident, convertType t)
             TMember1 (Ident ident) t -> (ident, convertType t)
-
-
-

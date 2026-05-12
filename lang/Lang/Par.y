@@ -77,24 +77,27 @@ Gen : PExp { Lang.Abs.Gen $1 }
 PExp :: { Lang.Abs.PExp }
 PExp
   : Ident '=' PExp1 'in' PExp { Lang.Abs.PLet $1 $3 $5 }
-  | Ident '~' PExp1 'in' PExp { Lang.Abs.PBind $1 $3 $5 }
-  | 'if' PExp 'then' PExp 'else' PExp { Lang.Abs.PIf $2 $4 $6 }
+  | Ident '~' PExp3 'in' PExp { Lang.Abs.PBind $1 $3 $5 }
   | 'filter' PExp6 'in' PExp { Lang.Abs.PGuard $2 $4 }
   | PExp1 { $1 }
 
 PExp1 :: { Lang.Abs.PExp }
 PExp1
-  : '\\' Ident '::' PTyp '->' PExp1 { Lang.Abs.PLambda $2 $4 $6 }
-  | '/\\' Ident '=>' PExp1 { Lang.Abs.PLambdaT $2 $4 }
+  : 'if' PExp6 'then' PExp1 'else' PExp1 { Lang.Abs.PIf $2 $4 $6 }
   | PExp2 { $1 }
 
 PExp2 :: { Lang.Abs.PExp }
-PExp2 : PExp2 '+' PExp3 { Lang.Abs.PPlus $1 $3 } | PExp3 { $1 }
+PExp2
+  : '\\' Ident '::' PTyp '->' PExp1 { Lang.Abs.PLambda $2 $4 $6 }
+  | '/\\' Ident '=>' PExp1 { Lang.Abs.PLambdaT $2 $4 }
+  | PExp2 '+' PExp3 { Lang.Abs.PPlus $1 $3 }
+  | PExp3 { $1 }
 
 PExp3 :: { Lang.Abs.PExp }
 PExp3
   : 'return' PExp4 { Lang.Abs.PReturn $2 }
   | 'distr' PTyp { Lang.Abs.PDistr $2 }
+  | 'distr' '(' PTyp ')' { Lang.Abs.PDistr $3 }
   | PExp4 { $1 }
 
 PExp5 :: { Lang.Abs.PExp }
@@ -110,13 +113,13 @@ PExp6
   | 'case' PExp 'of' PTyp '{' ListPCaseExp '}' { Lang.Abs.PCase $2 $4 $6 }
   | 'iter' '{' PExp ';' Ident ';' PExp '}' '(' PExp7 ')' { Lang.Abs.PRec $3 $5 $7 $10 }
   | PExp6 PExp7 { Lang.Abs.PApp $1 $2 }
+  | Ident { Lang.Abs.PVar $1 }
   | PExp7 { $1 }
 
 PExp7 :: { Lang.Abs.PExp }
 PExp7
   : 'True' { Lang.Abs.PBoolT }
   | 'False' { Lang.Abs.PBoolF }
-  | Ident { Lang.Abs.PVar $1 }
   | 'Z' { Lang.Abs.PZero }
   | 'S' '(' PExp7 ')' { Lang.Abs.PSucc $3 }
   | '(' PExp ')' { $2 }

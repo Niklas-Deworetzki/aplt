@@ -21,7 +21,7 @@ run s args = do
     Right tree -> do 
        let cTree = convert tree
        -- cTree is our abstract syntax representation
-       -- print cTree
+       print cTree
        -- converts parsed tree to the haskell AST. 
        case typecheck cTree of 
           Left message -> do

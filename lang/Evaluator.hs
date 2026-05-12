@@ -135,6 +135,7 @@ iterInstances (TProd cs) =
   let names = map fst cs
       instances = fairProduct $ map (iterInstances . snd) cs
   in VProd . zip names <$> instances
+iterInstances _ = error "iterInstances called on something that shouldn't be distributiable". 
 
 substT :: Name -> Type -> Expr -> Expr
 substT r tau = \case

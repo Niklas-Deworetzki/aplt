@@ -143,11 +143,11 @@ instance Print Lang.Abs.Gen where
 instance Print Lang.Abs.PExp where
   prt i = \case
     Lang.Abs.PLet id_ pexp1 pexp2 -> prPrec i 0 (concatD [prt 0 id_, doc (showString "="), prt 1 pexp1, doc (showString "in"), prt 0 pexp2])
-    Lang.Abs.PBind id_ pexp1 pexp2 -> prPrec i 0 (concatD [prt 0 id_, doc (showString "~"), prt 1 pexp1, doc (showString "in"), prt 0 pexp2])
-    Lang.Abs.PIf pexp1 pexp2 pexp3 -> prPrec i 0 (concatD [doc (showString "if"), prt 0 pexp1, doc (showString "then"), prt 0 pexp2, doc (showString "else"), prt 0 pexp3])
+    Lang.Abs.PBind id_ pexp1 pexp2 -> prPrec i 0 (concatD [prt 0 id_, doc (showString "~"), prt 3 pexp1, doc (showString "in"), prt 0 pexp2])
+    Lang.Abs.PIf pexp1 pexp2 pexp3 -> prPrec i 1 (concatD [doc (showString "if"), prt 6 pexp1, doc (showString "then"), prt 1 pexp2, doc (showString "else"), prt 1 pexp3])
     Lang.Abs.PGuard pexp1 pexp2 -> prPrec i 0 (concatD [doc (showString "filter"), prt 6 pexp1, doc (showString "in"), prt 0 pexp2])
-    Lang.Abs.PLambda id_ ptyp pexp -> prPrec i 1 (concatD [doc (showString "\\"), prt 0 id_, doc (showString "::"), prt 0 ptyp, doc (showString "->"), prt 1 pexp])
-    Lang.Abs.PLambdaT id_ pexp -> prPrec i 1 (concatD [doc (showString "/\\"), prt 0 id_, doc (showString "=>"), prt 1 pexp])
+    Lang.Abs.PLambda id_ ptyp pexp -> prPrec i 2 (concatD [doc (showString "\\"), prt 0 id_, doc (showString "::"), prt 0 ptyp, doc (showString "->"), prt 1 pexp])
+    Lang.Abs.PLambdaT id_ pexp -> prPrec i 2 (concatD [doc (showString "/\\"), prt 0 id_, doc (showString "=>"), prt 1 pexp])
     Lang.Abs.PPlus pexp1 pexp2 -> prPrec i 2 (concatD [prt 2 pexp1, doc (showString "+"), prt 3 pexp2])
     Lang.Abs.PReturn pexp -> prPrec i 3 (concatD [doc (showString "return"), prt 4 pexp])
     Lang.Abs.PDistr ptyp -> prPrec i 3 (concatD [doc (showString "distr"), prt 0 ptyp])
@@ -158,9 +158,9 @@ instance Print Lang.Abs.PExp where
     Lang.Abs.PCase pexp ptyp pcaseexps -> prPrec i 6 (concatD [doc (showString "case"), prt 0 pexp, doc (showString "of"), prt 0 ptyp, doc (showString "{"), prt 0 pcaseexps, doc (showString "}")])
     Lang.Abs.PRec pexp1 id_ pexp2 pexp3 -> prPrec i 6 (concatD [doc (showString "iter"), doc (showString "{"), prt 0 pexp1, doc (showString ";"), prt 0 id_, doc (showString ";"), prt 0 pexp2, doc (showString "}"), doc (showString "("), prt 7 pexp3, doc (showString ")")])
     Lang.Abs.PApp pexp1 pexp2 -> prPrec i 6 (concatD [prt 6 pexp1, prt 7 pexp2])
+    Lang.Abs.PVar id_ -> prPrec i 6 (concatD [prt 0 id_])
     Lang.Abs.PBoolT -> prPrec i 7 (concatD [doc (showString "True")])
     Lang.Abs.PBoolF -> prPrec i 7 (concatD [doc (showString "False")])
-    Lang.Abs.PVar id_ -> prPrec i 7 (concatD [prt 0 id_])
     Lang.Abs.PZero -> prPrec i 7 (concatD [doc (showString "Z")])
     Lang.Abs.PSucc pexp -> prPrec i 7 (concatD [doc (showString "S"), doc (showString "("), prt 7 pexp, doc (showString ")")])
 

@@ -30,9 +30,9 @@ data PExp
     | PCase PExp PTyp [PCaseExp]
     | PRec PExp Ident PExp PExp
     | PApp PExp PExp
+    | PVar Ident
     | PBoolT
     | PBoolF
-    | PVar Ident
     | PZero
     | PSucc PExp
   deriving (C.Eq, C.Ord, C.Show, C.Read)

@@ -41,9 +41,9 @@ transPExp x = case x of
   Lang.Abs.PCase pexp ptyp pcaseexps -> failure x
   Lang.Abs.PRec pexp1 ident pexp2 pexp3 -> failure x
   Lang.Abs.PApp pexp1 pexp2 -> failure x
+  Lang.Abs.PVar ident -> failure x
   Lang.Abs.PBoolT -> failure x
   Lang.Abs.PBoolF -> failure x
-  Lang.Abs.PVar ident -> failure x
   Lang.Abs.PZero -> failure x
   Lang.Abs.PSucc pexp -> failure x
 
