@@ -21,9 +21,9 @@ run s args = do
     Right tree -> do 
        let cTree = convert tree
        -- cTree is our abstract syntax representation
-       print $ "AST corresponding to file: " cTree
+       --print $ "AST corresponding to file: " cTree
        -- converts parsed tree to the haskell AST. 
-       case typecheck cTree of 
+       case typeCheck cTree of 
        -- TODO replace with typeCheck after refactoring
           Left message -> do
             hPutStrLn stderr message

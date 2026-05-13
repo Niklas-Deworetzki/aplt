@@ -135,7 +135,7 @@ iterInstances (TProd cs) =
   let names = map fst cs
       instances = fairProduct $ map (iterInstances . snd) cs
   in VProd . zip names <$> instances
-iterInstances _ = error "iterInstances called on something that shouldn't be distributiable". 
+iterInstances _ = error "iterInstances called on something that shouldn't be distributiable"
 
 substT :: Name -> Type -> Expr -> Expr
 substT r tau = \case
@@ -145,7 +145,7 @@ substT r tau = \case
     in Let x e1' e2'
   (Lambda x t e) ->
     let e' = substT r tau e
-        t' = subst r tau t
+        t' = substType r tau t
     in Lambda x t' e'
   (App f a) -> do
     let f' = substT r tau f
@@ -155,7 +155,7 @@ substT r tau = \case
     if r == x then LambdaT x e
     else LambdaT x (substT r tau e)
   (AppT t e) -> do
-    let t' = subst r tau t
+    let t' = substType r tau t
         e' = substT r tau e
       in AppT t' e'
   (Prod es) ->
@@ -163,12 +163,12 @@ substT r tau = \case
   (Proj k e) ->
     Proj k (substT r tau e)
   (Sum t x e) ->
-    let t' = subst r tau t
+    let t' = substType r tau t
         e' = substT r tau e
     in Sum t' x e'
   (Case e t ps) ->
     let e' = substT r tau e
-        t' = subst r tau t
+        t' = substType r tau t
         ps' = map (\(Pattern a b ec) -> Pattern a b $ substT r tau ec) ps
     in Case e' t' ps'
   (If c t f) ->
@@ -184,7 +184,7 @@ substT r tau = \case
         e' = substT r tau e
     in Iter eb' x ei' e'
   (Distr t) ->
-    Distr $ subst r tau t
+    Distr $ substType r tau t
   (Bind x e1 e2) ->
     let e1' = substT r tau e1
         e2' = substT r tau e2
