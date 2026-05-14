@@ -1,6 +1,8 @@
 Installation requirements:
 bnfc
+alex
 haskell 
+happy
 
 to install: 
 run "make" in the top directory. 
