@@ -3,23 +3,12 @@
 - exercise 4.1 is now not implemented at all, it is only inlined. 
 - Guard doesn't use the type, which is weird
 
-if time permits 
-- write a good errorcatcher for the typechecker 
-for example 
-synthesizeType' (Var t) = catchError (checkToTypeCheck $ synthVar (Var t)) (\e -> throwError $ "better message" ++ e )
-synthVar :: Expr -> Check Type
-synthVar (Var x) = lookupGamma x
-
-or
-
-synthesizeType n@(Lambda x t e) = do 
--- niceCatch (isAType t) n
-
 weird stuff I encountered:
-- secondM copied in AST.hs, why no import?
 - subst is used for type substitution where is the term substitution? 
+- I didn't understand what matchLabels does.
 - variable types have distributions. Is that correct?  Maybe I can test this by using an interesting recursive datatype? 
 -- Evan's advice : have two different types of quantification: quantification over arbitrary types, and quantification over distributable types. 
+-- JP: either solution is fine as long as you can reason about it and learn from the project. 
 
 
 - in the pdf, what does the intersection symbol mean in the dynamics of Plus? 

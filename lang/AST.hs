@@ -121,15 +121,31 @@ data Context = Ctxt { typeVars :: TypeContext , termVars :: TermContext }
 type TermContext = [(Name , Type)]
 type TypeContext = [Name]
 
+-- context extensions
 emptyCtxt :: Context
 emptyCtxt = Ctxt [] []
+
+putTermInContext :: Name -> Type -> Context -> Context 
+putTermInContext x t (Ctxt types terms) = Ctxt types ((x, t) : terms)
+
+putTypeInContext :: Name -> Context -> Context
+putTypeInContext t (Ctxt types terms) = Ctxt (t : types) terms
+
+withTermVar  :: Name -> Type -> TypeCheck a -> TypeCheck a
+withTermVar x t = local $ putTermInContext x t 
+
+withTypeVar :: Name -> TypeCheck a -> TypeCheck a
+withTypeVar t = local $ putTypeInContext t
+
+
+-- Error messaging 
 
 tryWithMessage :: Maybe a -> String -> TypeCheck a
 tryWithMessage Nothing  s = throwError s
 tryWithMessage (Just x) _ = pure x
 
 varNotFoundMsg :: Name -> TermContext -> String
-varNotFoundMsg x ctx = "We expected the term " ++ show x ++ " to be in the termcontext " ++ show ctx ++ "but it's not."
+varNotFoundMsg x ctx = "The term " ++ show x ++ " was not found in the context " ++ show ctx 
 
 lookupTypeDeclaration :: Name -> TypeCheck Type
 lookupTypeDeclaration varName = do 
@@ -143,25 +159,31 @@ isDeclaredType t = do
   types <- asks typeVars 
   let isDeclared = elem t types
   unless isDeclared $ throwError $ 
-   "We expected the type " ++ show t ++ " to be in the typecontext " ++ show types ++ " but it's not."
-
-
-putTermInContext :: Name -> Type -> Context -> Context 
-putTermInContext x t (Ctxt types terms) = Ctxt types ((x, t) : terms)
--- DANGER what about alpha-conversion. We could now have added the same variable twice.
-
-putTypeInContext :: Name -> Context -> Context
-putTypeInContext t (Ctxt types terms) = Ctxt (t : types) terms
-
-withTermVar  :: Name -> Type -> TypeCheck a -> TypeCheck a
-withTermVar x t = local $ putTermInContext x t 
-
-withTypeVar :: Name -> TypeCheck a -> TypeCheck a
-withTypeVar t = local $ putTypeInContext t
+   "The type " ++ show t ++ " was not found in the context " ++ show types 
 
 catchWhenEvaluating :: (Show b) => b -> TypeCheck a -> TypeCheck a
-catchWhenEvaluating x c = catchError c $ \e -> throwError $ e ++ "\n while evaluating " ++ show x
+catchWhenEvaluating x c = catchError c $ \errorMsg -> throwError $ 
+  errorMsg ++ "\n while evaluating " ++ show x
 
+isFormError :: Type -> String -> TypeCheck Type
+isFormError t expectedTypeName = throwError $ "TypeError. Expected something of form " ++ expectedTypeName ++ ". Actual type: " ++ show t 
+
+instance {-# OVERLAPS #-} MonadFail TypeCheck where
+  fail e = throwError $ " Haskell error: " ++ e
+  
+isTDist :: Type -> TypeCheck Type
+isTDist (TDist t) = return $ TDist t
+isTDist t = isFormError t "TDist"
+
+isTArr :: Type -> TypeCheck Type
+isTArr (TArr t1 t2) = return $ TArr t1 t2
+isTArr t = isFormError t "TArr"
+
+isTAll :: Type -> TypeCheck Type
+isTAll (TAll x t) = return $ TAll x t
+isTAll t = isFormError t "TAll"
+
+-- Type Checker
 typeCheck :: Expr -> Either String Type
 typeCheck e = runReaderT (synthesizeType e) emptyCtxt
 
@@ -178,9 +200,9 @@ synthesizeType n@(Lambda x t e) = catchWhenEvaluating n $ do
 
 synthesizeType n@(App f a) = catchWhenEvaluating n $ do 
   fType <- synthesizeType f 
-  case fType of 
-    (TArr t1 t2) -> exprHasType a t1 >> return t2
-    _ -> throwError $ "We want to apply the expression " ++ show f ++ " but we think it is not a function type."
+  TArr t1 t2 <- isTArr fType
+  exprHasType a t1 
+  return t2
 
 synthesizeType n@(LambdaT x e) = catchWhenEvaluating n $ do 
   t <- withTypeVar x $ synthesizeType e
@@ -191,6 +213,8 @@ synthesizeType n@(AppT t e) = catchWhenEvaluating n $ do
   isAType t
   -- Feature maybe do a nice catch here. 
   eType <- synthesizeType e
+  TAll x t' <- isTAll eType
+  return $ substType x t t'
   case eType of 
     (TAll x t') -> return $ substType x t t'
     _ -> throwError $ "We wanted to apply the expression " ++ show e ++ "to a type, we think it has type " ++ show eType ++ " which we think is not a TAll type."
@@ -285,11 +309,6 @@ isAType (TArr t1 t2) = isAType t1 >> isAType t2
 isAType (TDist t)    = isAType t 
 isAType TBool        = return ()
 isAType TNat         = return ()
-
-
-isTDist :: Type -> TypeCheck Type
-isTDist (TDist t) = return $ TDist t
-isTDist t = throwError $ "We excpected" ++ (show t) ++ " to be of the form TDist t, but it's not."
 
 isDistType :: Type -> TypeCheck ()
 isDistType TBool = return ()
