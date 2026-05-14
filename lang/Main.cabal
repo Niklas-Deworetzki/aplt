@@ -72,6 +72,7 @@ executable int
     , transformers >= 0.5.5.2
     , template-haskell
     , logict
+    , extra
 
   ghc-options:
     -Wall

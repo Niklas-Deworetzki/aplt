@@ -8,6 +8,7 @@ import Control.Monad.Error.Class
 import Data.Bifunctor
 import Data.List(sort, sortOn)
 import Lang.Abs
+import Data.Tuple.Extra (secondM)
 
 type Name = String
 
@@ -122,10 +123,6 @@ type TypeContext = [Name]
 
 emptyCtxt :: Context
 emptyCtxt = Ctxt [] []
-
--- Taken from https://hackage-content.haskell.org/package/extra-1.8.1/docs/src/Data.Tuple.Extra.html#secondM
-secondM :: Functor m => (b -> m b') -> (a, b) -> m (a, b')
-secondM f ~(a,b) = (a,) <$> f b
 
 tryWithMessage :: Maybe a -> String -> TypeCheck a
 tryWithMessage Nothing  s = throwError s
