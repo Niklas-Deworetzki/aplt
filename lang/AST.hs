@@ -166,7 +166,7 @@ catchWhenEvaluating x c = catchError c $ \errorMsg -> throwError $
   errorMsg ++ "\n while evaluating " ++ show x
 
 isFormError :: Type -> String -> TypeCheck Type
-isFormError t expectedTypeName = throwError $ "TypeError. Expected something of form " ++ expectedTypeName ++ ". Actual type: " ++ show t 
+isFormError t expectedTypeName = throwError $ "Expected something of form " ++ expectedTypeName ++ ". Actual type: " ++ show t 
 
 instance {-# OVERLAPS #-} MonadFail TypeCheck where
   fail e = throwError $ " Haskell error: " ++ e
@@ -180,8 +180,13 @@ isTArr (TArr t1 t2) = return $ TArr t1 t2
 isTArr t = isFormError t "TArr"
 
 isTAll :: Type -> TypeCheck Type
-isTAll (TAll x t) = return $ TAll x t
+isTAll (TAll x t) = return $ TAll x t 
 isTAll t = isFormError t "TAll"
+
+isTProd :: Type -> TypeCheck Type
+isTProd (TProd ts) = return $ TProd ts
+isTProd t = isFormError t "TProd"
+
 
 -- Type Checker
 typeCheck :: Expr -> Either String Type
@@ -200,7 +205,7 @@ synthesizeType n@(Lambda x t e) = catchWhenEvaluating n $ do
 
 synthesizeType n@(App f a) = catchWhenEvaluating n $ do 
   fType <- synthesizeType f 
-  TArr t1 t2 <- isTArr fType
+  (TArr t1 t2) <- isTArr fType
   exprHasType a t1 
   return t2
 
@@ -213,21 +218,18 @@ synthesizeType n@(AppT t e) = catchWhenEvaluating n $ do
   isAType t
   -- Feature maybe do a nice catch here. 
   eType <- synthesizeType e
-  TAll x t' <- isTAll eType
+  (TAll x t') <- isTAll eType
   return $ substType x t t'
-  case eType of 
-    (TAll x t') -> return $ substType x t t'
-    _ -> throwError $ "We wanted to apply the expression " ++ show e ++ "to a type, we think it has type " ++ show eType ++ " which we think is not a TAll type."
 
 synthesizeType n@(Prod es) = catchWhenEvaluating n $ TProd <$> forM es (secondM synthesizeType)
 
 synthesizeType n@(Proj k e) = catchWhenEvaluating n $ do 
   eType <- synthesizeType e 
-  case eType of 
-    (TProd ts) -> do 
-      let errormessage = "projected to " ++ show k ++ " in the product of types " ++ show ts ++ " which we couldn't find"
-      tryWithMessage (lookup k ts) errormessage
-    _ -> throwError $ "We wanted " ++ show e ++ " to be a prodType, but we think it has type " ++ show eType
+  (TProd ts) <- isTProd eType 
+  let errormessage = "projected to " ++ show k ++ ", which isn't present in the product " ++ show ts
+  tryWithMessage (lookup k ts) errormessage
+
+
 
 synthesizeType n@(Sum t x e) = catchWhenEvaluating n $ do 
   isAType t 
