@@ -5,15 +5,23 @@
 - I don't get how to do lets in the code (I get a syntax error and I think it's related to not undrstanding what PLet .PExp does in Lang.cf)
 
 weird stuff I encountered:
+- In the Cases expr, does the type need to be there? Yes it does, for the empty case.
+- I think I don't understand the Cases and the Sum type. 
+
 - subst is used for type substitution where is the term substitution? 
+
 - I didn't understand what matchLabels does.
+
 - variable types have distributions. Is that correct?  Maybe I can test this by using an interesting recursive datatype? 
+
 -- Evan's advice : have two different types of quantification: quantification over arbitrary types, and quantification over distributable types. 
+
 -- JP: either solution is fine as long as you can reason about it and learn from the project. 
 
 
 - in the pdf, what does the intersection symbol mean in the dynamics of Plus? 
 - synthesizing and inference had some interplay right?
+
 - in synthesizing AppT, I think the roles of the arguments were switched (this also occurs in convertExp)
 
 

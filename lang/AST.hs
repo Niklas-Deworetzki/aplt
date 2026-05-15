@@ -37,6 +37,7 @@ data Expr
 
   -- case e of T { l1 x1 -> e1 | ln xn -> en }
   | Case Expr Type [Pattern]
+  -- Do we need the type in the case analysis? 
 
   -- True False
   | LitBool Bool
@@ -74,9 +75,18 @@ data Expr
   | Return Expr
   deriving Show
 
+data Pattern' = Pattern' { varNameP :: Name , typeNameP:: Name , value :: Expr }
+
+patternTo' :: Pattern -> Pattern' 
+patternTo' (Pattern a b c) = Pattern' a b c
+
 data Pattern
   = Pattern Name Name Expr
   deriving Show
+
+patternLabel :: Pattern -> Name
+patternLabel (Pattern labelName _ _ ) = labelName
+
 
 -- forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
 -- my t . Unit | Unit * t
@@ -228,8 +238,8 @@ exprHasType expr@(LambdaT _ _) supposedType = catchWhenChecking expr supposedTyp
   notOfTypeError expr supposedType
 
 exprHasType expr@(Prod es) supposedType@(TProd ts) = catchWhenChecking expr supposedType $ do 
-  let exprNames = map fst es 
-  let typeNames = map fst ts 
+  let exprNames = sort $ map fst es 
+  let typeNames = sort $ map fst ts 
   unless (exprNames == typeNames) $ throwError "names in product expression and types mismatch"
   forM_ exprNames \name -> do 
     e <- tryWithMessage (lookup name es) ("(SHOULD BE IMPOSSIBLE) Cannot find " ++ show name ++ " in " ++ show es)
@@ -240,18 +250,57 @@ exprHasType expr@(Prod _) supposedType = catchWhenChecking expr supposedType $
 
 exprHasType expr@(Sum t x e) supposedType@(TSum ts) = catchWhenChecking expr supposedType $ do 
   unless (t == supposedType) $ notOfTypeError expr supposedType
-  eType <- tryWithMessage (lookup x ts) $ "couldn't find " ++ show x ++ " in " ts
+  eType <- tryWithMessage (lookup x ts) $ "couldn't find " ++ show x ++ " in " ++ show ts
   exprHasType e eType 
+
 exprHasType expr@(Sum _ _ _) supposedType = catchWhenChecking expr supposedType $ 
   notOfTypeError expr supposedType
-  
---synthesizeType n@(Sum t x e) = catchWhenEvaluating n $ do 
---  isAType t 
---  (TSum ss) <- isTSum t
---  let errorMsg = "Wanted to put something of label " ++ show x ++ " in a sum type over " ++ show ss ++ "but it doesn't appear in the list. "
---  eType <- tryWithMessage (lookup x ss) errorMsg
---  exprHasType e eType
---  return t
+
+
+exprHasType expr@(Case e t patternList) supposedType = catchWhenChecking expr supposedType $ do
+  unless (t == supposedType) $ notOfTypeError expr supposedType
+  eType <- synthesizeType e 
+  TSum eCases <- isTSum eType 
+  -- The following two lines say we do not enlarge sum-types. 
+  -- If we threw them out, we would allow to project out of bigger types. 
+--  let casesMatch = sort [l | Pattern l _ _ <- patternList] == sort (map fst eCases)
+--  unless casesMatch $ throwError $ "the cases in " ++ show eCases ++ " and " ++ show patternList ++ "don't match."
+  forM_ patternList $ \(Pattern _ varNamei expri) -> do 
+    let varLookup = lookup varNamei eCases
+    let errorMsg  = varNotFoundMsg varNamei eCases
+    varVal <- tryWithMessage varLookup errorMsg
+    withTermVar varNamei varVal $ exprHasType expri t
+
+exprHasType expr@(If condition trueCase falseCase) supposedType = catchWhenChecking expr supposedType $ do
+  exprHasType condition TBool
+  exprHasType trueCase supposedType
+  exprHasType falseCase supposedType
+
+exprHasType expr@(Iter baseCase varName inductiveCase n) supposedType = catchWhenChecking expr supposedType $ do 
+  exprHasType n TNat
+  exprHasType baseCase supposedType
+  withTermVar varName supposedType $ exprHasType inductiveCase supposedType
+
+exprHasType expr@(Bind x e1 e2) supposedType@(TDist t2) = catchWhenChecking expr supposedType $ do 
+  e1Type <- synthesizeType e1 
+  TDist t1 <- isTDist e1Type
+  withTermVar x t1 $ exprHasType e2 t2
+exprHasType expr@(Bind _ _ _) supposedType = catchWhenChecking expr supposedType $ 
+  notOfTypeError expr supposedType
+
+exprHasType expr@(Guard p e) supposedType = catchWhenChecking expr supposedType $ do
+  exprHasType p TBool
+  -- withTermVar varName supposedType $ exprHasType p TBool
+  -- IF you want Guard to take a function e -> Bool
+  exprHasType e supposedType
+
+exprHasType expr@(Plus e1 e2) supposedType = catchWhenChecking expr supposedType $ do 
+  exprHasType e1 supposedType
+  exprHasType e2 supposedType
+
+exprHasType expr@(Return e) supposedType@(TDist t) = catchWhenChecking expr supposedType $ exprHasType e t
+exprHasType expr@(Return _) supposedType = catchWhenChecking expr supposedType $ 
+  notOfTypeError expr supposedType
 
 exprHasType e supposedType = catchWhenChecking e supposedType $ do 
   realType <- synthesizeType e
@@ -270,7 +319,7 @@ synthesizeType expr@(Lambda x t e) = catchWhenEvaluating expr $ do
   t' <- withTermVar x t $ synthesizeType e
   return $ TArr t t'
 
-synthesizeType n@(App f a) = catchWhenEvaluating n $ do 
+synthesizeType expr@(App f a) = catchWhenEvaluating expr $ do 
   fType <- synthesizeType f 
   (TArr t1 t2) <- isTArr fType
   exprHasType a t1 
@@ -289,7 +338,7 @@ synthesizeType n@(AppT t e) = catchWhenEvaluating n $ do
 synthesizeType expr@(Prod es) = catchWhenEvaluating expr $ 
   TProd <$> forM es (secondM synthesizeType)
 
-synthesizeType n@(Proj k e) = catchWhenEvaluating n $ do 
+synthesizeType expr@(Proj k e) = catchWhenEvaluating expr $ do 
   eType <- synthesizeType e 
   (TProd ts) <- isTProd eType 
   let errormessage = "projected to " ++ show k ++ ", which isn't present in the product " ++ show ts
@@ -299,27 +348,15 @@ synthesizeType expr@(Sum t x e) = catchWhenEvaluating expr $ do
   isAType t 
   (TSum ss) <- isTSum t
   exprHasType expr t
---  let errorMsg = "Wanted to put something of label " ++ show x ++ " in a sum type over " ++ show ss ++ "but it doesn't appear in the list. "
---  eType <- tryWithMessage (lookup x ss) errorMsg
---  exprHasType e eType
---  return t
+  return t
 
-synthesizeType n@(Case e t patternList) = catchWhenEvaluating n $ do 
+synthesizeType expr@(Case e t patternList) = catchWhenEvaluating expr $ do 
   isAType t 
-  eType <- synthesizeType e 
-  case eType of 
-    TSum eCases -> do 
-      let casesMatch = sort [l | Pattern l _ _ <- patternList] == sort (map fst eCases)
-      unless casesMatch $ throwError $ "the cases in " ++ show eCases ++ " and " ++ show patternList ++ "don't match."
-      forM_ patternList $ \(Pattern label varName expr) -> do 
-        let varLookup = lookup varName eCases
-        let errorMsg  = varNotFoundMsg varName eCases
-        varVal <- tryWithMessage varLookup errorMsg
-        withTermVar varName varVal $ exprHasType expr t
-      return t
-    _ -> throwError $ "We wanted to case split on " ++ show e ++ "but instead of a sum type, we think it has type" ++ show eType
+  exprHasType expr t 
+  return t
 
 synthesizeType (LitBool _) = return TBool
+
 synthesizeType n@(If condition trueCase falseCase) = catchWhenEvaluating n $ do 
   exprHasType condition TBool
   typeTrueCase <- synthesizeType trueCase
@@ -329,35 +366,37 @@ synthesizeType n@(If condition trueCase falseCase) = catchWhenEvaluating n $ do
 
 synthesizeType Zero = return TNat
 synthesizeType (Succ e) = exprHasType e TNat >> return TNat
+
 synthesizeType x@(Iter baseCase varName inductiveCase n) = catchWhenEvaluating x $ do 
   exprHasType n TNat
   baseCaseType <- synthesizeType baseCase
   catchError (withTermVar varName baseCaseType $ exprHasType inductiveCase baseCaseType) (\err -> throwError $
     "In an iterative construction, we infered the type of " ++ show baseCase ++ " to be " ++ show baseCaseType ++ "but then if we make " ++ show varName ++ " of that type, we also need " ++ show inductiveCase ++ " of the same type, but we got the following error" ++ err)
   return baseCaseType
+
 synthesizeType x@(Distr t) = catchWhenEvaluating x $ do 
   isDistType t 
   return $ TDist t
+
 synthesizeType n@(Bind x e1 e2) = catchWhenEvaluating n $ do 
   e1Type <- synthesizeType e1
-  case e1Type of 
-    TDist t -> do 
-      e2Type <- withTermVar x t $ synthesizeType e2
-      isTDist e2Type
-    _ -> throwError $ "In a distribution binding, we infered the type of " ++ show e1 ++ " to be " ++ show e1Type ++ " but it should be a Distribution type"
+  (TDist t) <- isTDist e1Type
+  e2Type <- withTermVar x t $ synthesizeType e2
+  isTDist e2Type
+
 synthesizeType n@(Guard p e) = catchWhenEvaluating n $ do 
   -- CONFUSION shouldn't p be a function e -> Bool, so 
   -- Guard varName filterCondition expr
   -- withTermVar varName expr 
   exprHasType p TBool
   synthesizeType e >>= isTDist
+
 synthesizeType n@(Plus e1 e2) = catchWhenEvaluating n $ do 
   t1 <- synthesizeType e1
   _ <- isTDist t1
   exprHasType e2 t1
   return t1
 synthesizeType (Return e) = TDist <$> synthesizeType e
-
 
 containsNoDuplicates :: Eq a => [a] -> Bool
 containsNoDuplicates as = nub as == as 
@@ -368,7 +407,6 @@ isValidIndexType ss = do
   let types = map snd ss 
   unless (containsNoDuplicates labels) $ throwError $ "Duplicates in the labels of " ++ show ss
   forM_ types $ isAType
-
 
 isAType :: Type -> TypeCheck () 
 isAType (TVar t)     = isDeclaredType t
@@ -385,6 +423,7 @@ isDistType TBool = return ()
 isDistType TNat = return ()
 isDistType (TSum ss)  = forM_ ss $ isDistType . snd
 isDistType (TProd ps) = forM_ ps $ isDistType . snd
+
 isDistType (TVar t) = do 
   error "This should have a checker to make sure we only do distributable types/types with a sampling or something"
   types <- asks typeVars 
@@ -453,7 +492,6 @@ convertType = \case
     PTProd members -> TProd (map convertMember members)
     PTSum members -> TSum (map convertMember members)
     PTAll (Ident ident) t -> TAll ident (convertType t)
-
     where
         convertMember = \case
             TMember (Ident ident) t -> (ident, convertType t)
