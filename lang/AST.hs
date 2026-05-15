@@ -6,7 +6,7 @@ import Control.Monad
 import Control.Monad.Trans.Reader
 import Control.Monad.Error.Class
 import Data.Bifunctor
-import Data.List(sort, sortOn)
+import Data.List(sort, sortOn, nub)
 import Lang.Abs
 import Data.Tuple.Extra (secondM)
 
@@ -139,14 +139,6 @@ withTypeVar t = local $ putTypeInContext t
 
 
 -- Error messaging 
-
-tryWithMessage :: Maybe a -> String -> TypeCheck a
-tryWithMessage Nothing  s = throwError s
-tryWithMessage (Just x) _ = pure x
-
-varNotFoundMsg :: Name -> TermContext -> String
-varNotFoundMsg x ctx = "The term " ++ show x ++ " was not found in the context " ++ show ctx 
-
 lookupTypeDeclaration :: Name -> TypeCheck Type
 lookupTypeDeclaration varName = do 
     ctxt <- asks termVars
@@ -160,13 +152,26 @@ isDeclaredType t = do
   let isDeclared = elem t types
   unless isDeclared $ throwError $ 
    "The type " ++ show t ++ " was not found in the context " ++ show types 
+tryWithMessage :: Maybe a -> String -> TypeCheck a
+tryWithMessage Nothing  s = throwError s
+tryWithMessage (Just x) _ = pure x
 
-catchWhenEvaluating :: (Show b) => b -> TypeCheck a -> TypeCheck a
-catchWhenEvaluating x c = catchError c $ \errorMsg -> throwError $ 
-  errorMsg ++ "\n while evaluating " ++ show x
+varNotFoundMsg :: Name -> TermContext -> String
+varNotFoundMsg x ctx = "The term " ++ show x ++ " was not found in the context " ++ show ctx 
+
+catchWhenEvaluating :: Expr -> TypeCheck a -> TypeCheck a
+catchWhenEvaluating e c = catchError c $ \errorMsg -> throwError $ 
+  errorMsg ++ "\n while evaluating the type of " ++ show e
+
+catchWhenChecking :: Expr -> Type -> TypeCheck a -> TypeCheck a
+catchWhenChecking e t check = catchError check $ \errorMSG -> throwError $ 
+  errorMSG ++ "\n while checking that " ++ show e ++ " has type " ++ show t
 
 isFormError :: Type -> String -> TypeCheck Type
 isFormError t expectedTypeName = throwError $ "Expected something of form " ++ expectedTypeName ++ ". Actual type: " ++ show t 
+
+notOfTypeError :: Expr -> Type -> TypeCheck ()
+notOfTypeError expr expectedType = throwError $ "Expected " ++ show expr ++ " to be of type " ++ show expectedType ++ " but it has the wrong form."
 
 instance {-# OVERLAPS #-} MonadFail TypeCheck where
   fail e = throwError $ " Haskell error: " ++ e
@@ -187,18 +192,80 @@ isTProd :: Type -> TypeCheck Type
 isTProd (TProd ts) = return $ TProd ts
 isTProd t = isFormError t "TProd"
 
+isTSum :: Type -> TypeCheck Type
+isTSum (TSum ts) = return $ TSum ts
+isTSum t = isFormError t "TSum"
 
 -- Type Checker
 typeCheck :: Expr -> Either String Type
 typeCheck e = runReaderT (synthesizeType e) emptyCtxt
 
+checkEqualityOfTypes :: Type -> Type -> TypeCheck ()
+checkEqualityOfTypes t1 t2 = 
+  unless (t1 == t2) $ throwError $
+  "The types " ++ show t1 ++ " and " ++ show t2 ++ "should be equal, but they're not."
+
+exprHasType :: Expr -> Type -> TypeCheck ()
+-- exprHasType e t ensures that e has type t, and otherwise would throw an error. 
+exprHasType expr@(Let x e1 e2) supposedType = catchWhenChecking expr supposedType $ do 
+  t1 <- synthesizeType e1 
+  withTermVar x t1 $ exprHasType e2 supposedType
+
+exprHasType expr@(Lambda x t e) supposedType@(TArr t1 t2) = catchWhenChecking expr supposedType $ do 
+  checkEqualityOfTypes t t1
+  withTermVar x t1 $ exprHasType e t2
+
+exprHasType expr@(Lambda _ _ _) supposedType = catchWhenChecking expr supposedType $ 
+  notOfTypeError expr supposedType
+
+exprHasType expr@(App f arg) supposedType = catchWhenChecking expr supposedType $ do 
+  argType <- synthesizeType arg
+  exprHasType f (TArr argType supposedType)
+
+exprHasType expr@(LambdaT x e) supposedType@(TAll y t) = catchWhenChecking expr supposedType $ do 
+  withTypeVar x $ exprHasType e (renameTypeVar y x t)
+exprHasType expr@(LambdaT _ _) supposedType = catchWhenChecking expr supposedType $ 
+  notOfTypeError expr supposedType
+
+exprHasType expr@(Prod es) supposedType@(TProd ts) = catchWhenChecking expr supposedType $ do 
+  let exprNames = map fst es 
+  let typeNames = map fst ts 
+  unless (exprNames == typeNames) $ throwError "names in product expression and types mismatch"
+  forM_ exprNames \name -> do 
+    e <- tryWithMessage (lookup name es) ("(SHOULD BE IMPOSSIBLE) Cannot find " ++ show name ++ " in " ++ show es)
+    t <- tryWithMessage (lookup name ts) ("(SHOULD BE IMPOSSIBLE) Cannot find " ++ show name ++ " in " ++ show ts)
+    exprHasType e t 
+exprHasType expr@(Prod _) supposedType = catchWhenChecking expr supposedType $ 
+  notOfTypeError expr supposedType
+
+exprHasType expr@(Sum t x e) supposedType@(TSum ts) = catchWhenChecking expr supposedType $ do 
+  unless (t == supposedType) $ notOfTypeError expr supposedType
+  eType <- tryWithMessage (lookup x ts) $ "couldn't find " ++ show x ++ " in " ts
+  exprHasType e eType 
+exprHasType expr@(Sum _ _ _) supposedType = catchWhenChecking expr supposedType $ 
+  notOfTypeError expr supposedType
+  
+--synthesizeType n@(Sum t x e) = catchWhenEvaluating n $ do 
+--  isAType t 
+--  (TSum ss) <- isTSum t
+--  let errorMsg = "Wanted to put something of label " ++ show x ++ " in a sum type over " ++ show ss ++ "but it doesn't appear in the list. "
+--  eType <- tryWithMessage (lookup x ss) errorMsg
+--  exprHasType e eType
+--  return t
+
+exprHasType e supposedType = catchWhenChecking e supposedType $ do 
+  realType <- synthesizeType e
+  checkEqualityOfTypes realType supposedType 
+
+-- synthesizing types
 synthesizeType :: Expr -> TypeCheck Type
 synthesizeType (Var t) = lookupTypeDeclaration t
-synthesizeType n@(Let x e1 e2) = catchWhenEvaluating n $ do 
+
+synthesizeType expr@(Let x e1 e2) = catchWhenEvaluating expr $ do 
   t1 <- synthesizeType e1
   withTermVar x t1 $ synthesizeType e2
 
-synthesizeType n@(Lambda x t e) = catchWhenEvaluating n $ do 
+synthesizeType expr@(Lambda x t e) = catchWhenEvaluating expr $ do 
   isAType t
   t' <- withTermVar x t $ synthesizeType e
   return $ TArr t t'
@@ -214,14 +281,13 @@ synthesizeType n@(LambdaT x e) = catchWhenEvaluating n $ do
   return $ TAll x t
 
 synthesizeType n@(AppT t e) = catchWhenEvaluating n $ do 
--- DANGER is this not flipped from the book? shouldn't AppT take first 
   isAType t
-  -- Feature maybe do a nice catch here. 
   eType <- synthesizeType e
   (TAll x t') <- isTAll eType
   return $ substType x t t'
 
-synthesizeType n@(Prod es) = catchWhenEvaluating n $ TProd <$> forM es (secondM synthesizeType)
+synthesizeType expr@(Prod es) = catchWhenEvaluating expr $ 
+  TProd <$> forM es (secondM synthesizeType)
 
 synthesizeType n@(Proj k e) = catchWhenEvaluating n $ do 
   eType <- synthesizeType e 
@@ -229,17 +295,14 @@ synthesizeType n@(Proj k e) = catchWhenEvaluating n $ do
   let errormessage = "projected to " ++ show k ++ ", which isn't present in the product " ++ show ts
   tryWithMessage (lookup k ts) errormessage
 
-
-
-synthesizeType n@(Sum t x e) = catchWhenEvaluating n $ do 
+synthesizeType expr@(Sum t x e) = catchWhenEvaluating expr $ do 
   isAType t 
-  case t of 
-    TSum ss -> do 
-      let errorMsg = "Wanted to put something of label " ++ show x ++ " in a sum type over " ++ show ss ++ "but it doesn't appear in the list. "
-      eType <- tryWithMessage (lookup x ss) errorMsg
-      exprHasType e eType
-      return t
-    _ -> throwError $ "We wanted " ++ show t ++ "to be a sumtype, but it's not."
+  (TSum ss) <- isTSum t
+  exprHasType expr t
+--  let errorMsg = "Wanted to put something of label " ++ show x ++ " in a sum type over " ++ show ss ++ "but it doesn't appear in the list. "
+--  eType <- tryWithMessage (lookup x ss) errorMsg
+--  exprHasType e eType
+--  return t
 
 synthesizeType n@(Case e t patternList) = catchWhenEvaluating n $ do 
   isAType t 
@@ -295,18 +358,23 @@ synthesizeType n@(Plus e1 e2) = catchWhenEvaluating n $ do
   return t1
 synthesizeType (Return e) = TDist <$> synthesizeType e
 
-exprHasType :: Expr -> Type -> TypeCheck ()
-exprHasType e supposedType = do 
-  realType <- synthesizeType e
-  unless (realType == supposedType) $ throwError $ 
-    (show e) ++ " should have type " ++ (show supposedType) ++ " but has type " ++ (show realType) ++ " which we think aren't equal."
+
+containsNoDuplicates :: Eq a => [a] -> Bool
+containsNoDuplicates as = nub as == as 
+
+isValidIndexType :: [(Name , Type)] -> TypeCheck ()
+isValidIndexType ss = do 
+  let labels = map fst ss 
+  let types = map snd ss 
+  unless (containsNoDuplicates labels) $ throwError $ "Duplicates in the labels of " ++ show ss
+  forM_ types $ isAType
 
 
 isAType :: Type -> TypeCheck () 
 isAType (TVar t)     = isDeclaredType t
 isAType (TAll x t)   = withTypeVar x $ isAType t
-isAType (TSum ss)    = forM_ ss $ isAType . snd
-isAType (TProd ps)   = forM_ ps $ isAType . snd
+isAType (TSum ss)    = isValidIndexType ss
+isAType (TProd ps)   = isValidIndexType ps
 isAType (TArr t1 t2) = isAType t1 >> isAType t2
 isAType (TDist t)    = isAType t 
 isAType TBool        = return ()
@@ -338,7 +406,8 @@ substType x s t = case t of
   (TSum ss)  -> TSum  $ map (second $ substType x s) ss
   (TProd ps) -> TProd $ map (second $ substType x s) ps
 
-
+renameTypeVar :: Name -> Name -> Type -> Type
+renameTypeVar oldName newName = substType oldName (TVar newName)
 
 
 -- CONVERTER
