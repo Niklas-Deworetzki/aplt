@@ -7,6 +7,7 @@ import Control.Monad.Logic
 import Data.Bifunctor
 import Data.Maybe(fromJust)
 import Data.List(intercalate)
+import Data.Tuple.Extra (secondM)
 
 import AST
 
