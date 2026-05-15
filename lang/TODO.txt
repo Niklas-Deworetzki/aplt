@@ -1,7 +1,8 @@
-- preservation proof
-- replace the Maybe in Check with Either String
+- preservation proof (big step semantics)
 - exercise 4.1 is now not implemented at all, it is only inlined. 
 - Guard doesn't use the type, which is weird
+- Make sure we can only bind distributable types. 
+- I don't get how to do lets in the code (I get a syntax error and I think it's related to not undrstanding what PLet .PExp does in Lang.cf)
 
 weird stuff I encountered:
 - subst is used for type substitution where is the term substitution? 
