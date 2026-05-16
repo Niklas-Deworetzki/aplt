@@ -261,15 +261,14 @@ exprHasType expr@(Case e t patternList) supposedType = catchWhenChecking expr su
   unless (t == supposedType) $ notOfTypeError expr supposedType
   eType <- synthesizeType e 
   TSum eCases <- isTSum eType 
-  -- The following two lines say we do not enlarge sum-types. 
-  -- If we threw them out, we would allow to project out of bigger types. 
---  let casesMatch = sort [l | Pattern l _ _ <- patternList] == sort (map fst eCases)
---  unless casesMatch $ throwError $ "the cases in " ++ show eCases ++ " and " ++ show patternList ++ "don't match."
+  let casesMatch = sort [l | Pattern l _ _ <- patternList] == sort (map fst eCases)
+  unless casesMatch $ throwError $ 
+    "the cases in " ++ show eCases ++ " and " ++ show patternList ++ "don't match."
   forM_ patternList $ \(Pattern _ varNamei expri) -> do 
     let varLookup = lookup varNamei eCases
     let errorMsg  = varNotFoundMsg varNamei eCases
-    varVal <- tryWithMessage varLookup errorMsg
-    withTermVar varNamei varVal $ exprHasType expri t
+    typei <- tryWithMessage varLookup errorMsg
+    withTermVar varNamei typei $ exprHasType expri t
 
 exprHasType expr@(If condition trueCase falseCase) supposedType = catchWhenChecking expr supposedType $ do
   exprHasType condition TBool
@@ -344,13 +343,13 @@ synthesizeType expr@(Proj k e) = catchWhenEvaluating expr $ do
   let errormessage = "projected to " ++ show k ++ ", which isn't present in the product " ++ show ts
   tryWithMessage (lookup k ts) errormessage
 
-synthesizeType expr@(Sum t x e) = catchWhenEvaluating expr $ do 
+synthesizeType expr@(Sum t _ _) = catchWhenEvaluating expr $ do 
   isAType t 
-  (TSum ss) <- isTSum t
+  (TSum _) <- isTSum t
   exprHasType expr t
   return t
 
-synthesizeType expr@(Case e t patternList) = catchWhenEvaluating expr $ do 
+synthesizeType expr@(Case _ t _) = catchWhenEvaluating expr $ do 
   isAType t 
   exprHasType expr t 
   return t
