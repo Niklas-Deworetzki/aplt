@@ -1,0 +1,7 @@
+we now have type inference and synthesizing in a different way, with more type checking done without synthesizing. (Exc 4.1 with uparrow and downarrow). 
+
+check is now called exprHasType
+synth is now called synthesizeType
+both now come with some error message system. 
+
+in Lang.cf, App and S took only as arguments things of the form Exp7, which I think are only literals. I changed this to Exp. 
