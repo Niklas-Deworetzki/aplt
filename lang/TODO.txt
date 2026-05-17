@@ -4,12 +4,8 @@
 
 - Make sure we can only bind distributable types. 
 
-- I don't get how to do lets in the code (I get a syntax error and I think it's related to not undrstanding what PLet .PExp does in Lang.cf)
 
 weird stuff I encountered:
-- In the Cases expr, does the type need to be there? Yes it does, for the empty case.
-- I think I don't understand the Cases and the Sum type naming conventions (Patterns names of what exactly?)
-
 - subst is used for type substitution where is the term substitution? 
 
 - I didn't understand what matchLabels does.
@@ -26,5 +22,3 @@ weird stuff I encountered:
 
 - in synthesizing AppT, I think the roles of the arguments were switched (this also occurs in convertExp)
 
-
-- 

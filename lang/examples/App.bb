@@ -1,1 +1,1 @@
-(\ n :: Nat -> S (S n)) Z
+(\ n :: Nat -> S (S (n))) Z

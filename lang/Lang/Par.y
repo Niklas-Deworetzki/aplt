@@ -112,7 +112,7 @@ PExp6
   | 'inj' PTyp '{' PLabExp '}' { Lang.Abs.PSum $2 $4 }
   | 'case' PExp 'of' PTyp '{' ListPCaseExp '}' { Lang.Abs.PCase $2 $4 $6 }
   | 'iter' '{' PExp ';' Ident ';' PExp '}' '(' PExp7 ')' { Lang.Abs.PRec $3 $5 $7 $10 }
-  | PExp6 PExp7 { Lang.Abs.PApp $1 $2 }
+  | PExp6 PExp { Lang.Abs.PApp $1 $2 }
   | Ident { Lang.Abs.PVar $1 }
   | PExp7 { $1 }
 
@@ -121,7 +121,7 @@ PExp7
   : 'True' { Lang.Abs.PBoolT }
   | 'False' { Lang.Abs.PBoolF }
   | 'Z' { Lang.Abs.PZero }
-  | 'S' '(' PExp7 ')' { Lang.Abs.PSucc $3 }
+  | 'S' '(' PExp ')' { Lang.Abs.PSucc $3 }
   | '(' PExp ')' { $2 }
 
 PExp4 :: { Lang.Abs.PExp }

@@ -1,1 +1,1 @@
-one=(S(Z)) in (S one)
+one=(S(Z)) in (S (one))
