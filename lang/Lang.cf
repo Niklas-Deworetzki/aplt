@@ -44,7 +44,7 @@ separator PCaseExp ",";
 
 
 PTBool.		PTyp ::= "Bool";
-PTNat.      PTyp ::= "Nat";
+PTNat.    PTyp ::= "Nat";
 PTVar.		PTyp ::= Ident;
 PTArr.		PTyp ::= "Arr" PTyp PTyp;
 PTDist.		PTyp ::= "Dist" PTyp;

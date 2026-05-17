@@ -2,3 +2,4 @@
 *.hi
 dist-newstyle/
 Lang/
+.stack-work/
