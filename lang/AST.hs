@@ -171,11 +171,11 @@ varNotFoundMsg x ctx = "The term " ++ show x ++ " was not found in the context "
 
 catchWhenEvaluating :: Expr -> TypeCheck a -> TypeCheck a
 catchWhenEvaluating e c = catchError c $ \errorMsg -> throwError $ 
-  errorMsg ++ "\n while evaluating the type of " ++ show e
+  errorMsg ++ "\n \nwhile evaluating the type of " ++ show e
 
 catchWhenChecking :: Expr -> Type -> TypeCheck a -> TypeCheck a
 catchWhenChecking e t check = catchError check $ \errorMSG -> throwError $ 
-  errorMSG ++ "\n while checking that " ++ show e ++ " has type " ++ show t
+  errorMSG ++ "\n \nwhile checking that " ++ show e ++ " has type " ++ show t
 
 isFormError :: Type -> String -> TypeCheck Type
 isFormError t expectedTypeName = throwError $ "Expected something of form " ++ expectedTypeName ++ ". Actual type: " ++ show t 
@@ -261,13 +261,15 @@ exprHasType expr@(Case e t patternList) supposedType = catchWhenChecking expr su
   unless (t == supposedType) $ notOfTypeError expr supposedType
   eType <- synthesizeType e 
   TSum eCases <- isTSum eType 
-  let casesMatch = sort [l | Pattern l _ _ <- patternList] == sort (map fst eCases)
-  unless casesMatch $ throwError $ 
-    "the cases in " ++ show eCases ++ " and " ++ show patternList ++ "don't match."
-  forM_ patternList $ \(Pattern _ varNamei expri) -> do 
-    let varLookup = lookup varNamei eCases
-    let errorMsg  = varNotFoundMsg varNamei eCases
-    typei <- tryWithMessage varLookup errorMsg
+  let patternLabels = sort [ l | Pattern l _ _ <- patternList]
+  let eLabels = sort $ map fst eCases
+  let labelsMatch = patternLabels == eLabels
+  unless labelsMatch $ throwError $ 
+    "the labels in " ++ show eLabels ++ " and " ++ show patternLabels ++ "don't match."
+  forM_ patternList $ \(Pattern label varNamei expri) -> do 
+    let labelLookup = lookup label eCases
+    let errorMsg  = "the label " ++ show label ++ "was not found in the sum " ++ show eCases
+    typei <- tryWithMessage labelLookup errorMsg
     withTermVar varNamei typei $ exprHasType expri t
 
 exprHasType expr@(If condition trueCase falseCase) supposedType = catchWhenChecking expr supposedType $ do
