@@ -67,13 +67,14 @@ All other symbols are terminals.
   |  |  **|**  | ``inj`` //PTyp// ``{`` //PLabExp// ``}``
   |  |  **|**  | ``case`` //PExp// ``of`` //PTyp// ``{`` //[PCaseExp]// ``}``
   |  |  **|**  | ``iter`` ``{`` //PExp// ``;`` //Ident// ``;`` //PExp// ``}`` ``(`` //PExp7// ``)``
-  |  |  **|**  | //PExp6// //PExp//
+  |  |  **|**  | //PExp6// //PExp7//
   |  |  **|**  | //Ident//
   |  |  **|**  | //PExp7//
   | //PExp7// | -> | ``True``
   |  |  **|**  | ``False``
   |  |  **|**  | ``Z``
-  |  |  **|**  | ``S`` ``(`` //PExp// ``)``
+  |  |  **|**  | ``S`` //PExp7//
+  |  |  **|**  | ``(`` //PExp// ``)``
   |  |  **|**  | ``(`` //PExp// ``)``
   | //PExp4// | -> | //PExp5//
   | //PLabExp// | -> | //Ident// ``:`` //PExp//

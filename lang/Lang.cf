@@ -22,16 +22,14 @@ PProd.		PExp6 ::= "<" [PLabExp] ">";
 PSum.		  PExp6 ::= "inj" PTyp "{" PLabExp "}";
 PCase.		PExp6 ::= "case" PExp "of" PTyp "{" [PCaseExp] "}";
 PRec.     PExp6 ::= "iter" "{" PExp ";" Ident ";" PExp "}" "(" PExp7 ")" ;
-PApp.		  PExp6 ::= PExp6 PExp;   
+PApp.		  PExp6 ::= PExp6 PExp7;   
 PVar. 		PExp6 ::= Ident;
 
 PBoolT.		PExp7 ::= "True";
 PBoolF.		PExp7 ::= "False";
 PZero.    PExp7 ::= "Z"; 
-PSucc.    PExp7 ::= "S" "(" PExp")"; 
-
-
--- PPar.  PExp7 ::= "(" PExp ")";
+PSucc.    PExp7 ::= "S" PExp7; 
+PPar.  PExp7 ::= "(" PExp ")";
 
 coercions PExp 7;
 

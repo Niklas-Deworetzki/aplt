@@ -249,7 +249,8 @@ exprHasType expr@(Prod _) supposedType = catchWhenChecking expr supposedType $
   notOfTypeError expr supposedType
 
 exprHasType expr@(Sum t x e) supposedType@(TSum ts) = catchWhenChecking expr supposedType $ do 
-  unless (t == supposedType) $ notOfTypeError expr supposedType
+  let errorMsg = "expected " ++ show t ++ " and " ++ show supposedType ++ " to be equal, but they're not"
+  unless (t == supposedType) $ throwError errorMsg
   eType <- tryWithMessage (lookup x ts) $ "couldn't find " ++ show x ++ " in " ++ show ts
   exprHasType e eType 
 
@@ -480,6 +481,7 @@ convertExp = \case
     PVar (Ident ident) -> Var ident
     PZero -> Zero
     PSucc e -> Succ (convertExp e)
+    PPar e -> convertExp e
 
     where convertPattern (PCaseExp (Ident ident1) (Ident ident2) e) = Pattern ident1 ident2 (convertExp e)
 

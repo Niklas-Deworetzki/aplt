@@ -46,6 +46,7 @@ transPExp x = case x of
   Lang.Abs.PBoolF -> failure x
   Lang.Abs.PZero -> failure x
   Lang.Abs.PSucc pexp -> failure x
+  Lang.Abs.PPar pexp -> failure x
 
 transPLabExp :: Lang.Abs.PLabExp -> Result
 transPLabExp x = case x of

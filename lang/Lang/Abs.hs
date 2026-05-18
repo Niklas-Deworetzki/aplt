@@ -35,6 +35,7 @@ data PExp
     | PBoolF
     | PZero
     | PSucc PExp
+    | PPar PExp
   deriving (C.Eq, C.Ord, C.Show, C.Read)
 
 data PLabExp = PLabExp Ident PExp
