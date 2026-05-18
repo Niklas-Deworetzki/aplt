@@ -1,4 +1,4 @@
-(/\ T => inj { Just : T | Nothing : <> } {Nothing : <> })
+(/\ T => inj { Just : T | Nothing : <> } {Nothing : <> }) 
 
 -- this still works:
 --inj { Just : Bool | Nothing : <> } {Nothing : <> }

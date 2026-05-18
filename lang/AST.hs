@@ -75,17 +75,11 @@ data Expr
   | Return Expr
   deriving Show
 
-data Pattern' = Pattern' { varNameP :: Name , typeNameP:: Name , value :: Expr }
-
-patternTo' :: Pattern -> Pattern' 
-patternTo' (Pattern a b c) = Pattern' a b c
-
 data Pattern
   = Pattern Name Name Expr
   deriving Show
 
-patternLabel :: Pattern -> Name
-patternLabel (Pattern labelName _ _ ) = labelName
+type Index = [(Name , Type)]
 
 
 -- forall a . my t . (Cons: a (t a) | Nil: Unit) in Exp
@@ -97,8 +91,8 @@ data Type
 
   -- ind types are dead
   -- | TInd Name Type
-  | TSum  [(Name, Type)]
-  | TProd [(Name, Type)]
+  | TSum  Index
+  | TProd Index
 
   | TAll Name Type
   | TVar Name
@@ -106,10 +100,57 @@ data Type
   | TDist Type
   deriving Show
 
-instance Eq Type where
-  t1 == t2 = matchTypes [] t1 t2
+--instance Eq Type where
+--  t1 == t2 = matchTypes [] t1 t2
 
+equalityCheck :: Type -> Type -> TypeCheck ()
+equalityCheck s t = catchWhenEqualityChecking s t (typesEquality s t)
+
+typesEquality :: Type -> Type -> TypeCheck ()
+typesEquality TBool TBool = return ()
+typesEquality TNat TNat   = return ()
+typesEquality (TVar x)     (TVar y)     = do 
+  unless (x == y) $ expectedEqualError x y 
+  return ()
+typesEquality (TDist l)    (TDist r)    = typesEquality l r 
+typesEquality (TProd ls)   (TProd rs)   = indexEquality ls rs 
+typesEquality (TSum  ls)   (TSum  rs)   = indexEquality ls rs 
+typesEquality (TAll lx lt) (TAll rx rt) = typesEquality lt (renameTypeVar rx lx rt)
+typesEquality (TArr ldom lcod) (TArr rdom rcod) = typesEquality ldom rdom >> typesEquality lcod rcod
+typesEquality s t = expectedEqualError s t 
+
+isValidIndexType :: Index -> TypeCheck ()
+isValidIndexType ss = do 
+  let labels = map fst ss 
+  let types = map snd ss 
+  unless (containsNoDuplicates labels) $ throwError $ "Duplicates in the labels of " ++ show ss
+  forM_ types $ isAType
+
+isSubIndex :: Index -> Index -> TypeCheck ()
+isSubIndex index1 index2 =  do 
+  forM_ index1 $ \(label , typeIn1) -> do 
+    let errorMsg = "the label " ++ show label ++ "is not found in " ++ show index2
+    typeIn2 <- tryWithMessage (lookup label index2) errorMsg
+    typesEquality typeIn1 typeIn2
+
+indexEquality :: Index -> Index -> TypeCheck ()
+indexEquality ss ts = catchWhenEqualityChecking ss ts $ do 
+  isValidIndexType ss 
+  isValidIndexType ts 
+  isSubIndex ss ts 
+  isSubIndex ts ss
+
+{-
+equalityOfTypes :: Type -> Type -> TypeCheck Bool 
+equalityOfTypes t s = do
+    typeVarsInscope <- asks typeVars
+    let initialRenames = [ (a,a) | a <- typeVarsInscope ]
+    return $ matchTypes initialRenames t s
+-}    
+{-
 matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
+-- matchTypes ms t s 
+-- calculates under the renaming rules ms whether t equals s. 
 matchTypes _ TBool TBool = True
 matchTypes _ TNat TNat = True
 matchTypes ms (TVar l)     (TVar r)     = lookup l ms == Just r
@@ -123,7 +164,7 @@ matchTypes _ _ _ = False
 matchLabels :: [(Name, Name)] -> [(Name, Type)] -> [(Name, Type)] -> Bool
 matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
   where f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
-
+-}
 type TypeCheck = ReaderT Context (Either String)
 
 data Context = Ctxt { typeVars :: TypeContext , termVars :: TermContext }
@@ -169,9 +210,19 @@ tryWithMessage (Just x) _ = pure x
 varNotFoundMsg :: Name -> TermContext -> String
 varNotFoundMsg x ctx = "The term " ++ show x ++ " was not found in the context " ++ show ctx 
 
+expectedEqualMsg :: (Show a) => a -> a -> String
+expectedEqualMsg x y = "Expected " ++ show x ++ " and " ++ show y ++ " to be equal, but they're not"
+
+expectedEqualError :: (Show a) => a -> a -> TypeCheck b
+expectedEqualError s t = throwError $ expectedEqualMsg s t 
+
+catchWhenEqualityChecking :: (Show b) => b -> b -> TypeCheck a -> TypeCheck a
+catchWhenEqualityChecking s t c = catchError c $ \errorMsg -> throwError $ 
+  errorMsg ++ "\n \nwhile checking the equality " ++ show s ++ " = " ++ show t
+
 catchWhenEvaluating :: Expr -> TypeCheck a -> TypeCheck a
 catchWhenEvaluating e c = catchError c $ \errorMsg -> throwError $ 
-  errorMsg ++ "\n \nwhile evaluating the type of " ++ show e
+  errorMsg ++ "\n \nwhile synthesizing the type of " ++ show e
 
 catchWhenChecking :: Expr -> Type -> TypeCheck a -> TypeCheck a
 catchWhenChecking e t check = catchError check $ \errorMSG -> throwError $ 
@@ -211,9 +262,9 @@ typeCheck :: Expr -> Either String Type
 typeCheck e = runReaderT (synthesizeType e) emptyCtxt
 
 checkEqualityOfTypes :: Type -> Type -> TypeCheck ()
-checkEqualityOfTypes t1 t2 = 
-  unless (t1 == t2) $ throwError $
-  "The types " ++ show t1 ++ " and " ++ show t2 ++ "should be equal, but they're not."
+checkEqualityOfTypes = typesEquality
+--  unless (t1 == t2) $ throwError $
+--  "The types " ++ show t1 ++ " and " ++ show t2 ++ "should be equal, but they're not."
 
 exprHasType :: Expr -> Type -> TypeCheck ()
 -- exprHasType e t ensures that e has type t, and otherwise would throw an error. 
@@ -249,8 +300,9 @@ exprHasType expr@(Prod _) supposedType = catchWhenChecking expr supposedType $
   notOfTypeError expr supposedType
 
 exprHasType expr@(Sum t x e) supposedType@(TSum ts) = catchWhenChecking expr supposedType $ do 
-  let errorMsg = "expected " ++ show t ++ " and " ++ show supposedType ++ " to be equal, but they're not"
-  unless (t == supposedType) $ throwError errorMsg
+  typesEquality t supposedType
+--  let errorMsg = "expected " ++ show t ++ " and " ++ show supposedType ++ " to be equal, but they're not"
+--  unless (t == supposedType) $ throwError errorMsg
   eType <- tryWithMessage (lookup x ts) $ "couldn't find " ++ show x ++ " in " ++ show ts
   exprHasType e eType 
 
@@ -259,7 +311,8 @@ exprHasType expr@(Sum _ _ _) supposedType = catchWhenChecking expr supposedType 
 
 
 exprHasType expr@(Case e t patternList) supposedType = catchWhenChecking expr supposedType $ do
-  unless (t == supposedType) $ notOfTypeError expr supposedType
+  typesEquality t supposedType
+  --unless (t == supposedType) $ notOfTypeError expr supposedType
   eType <- synthesizeType e 
   TSum eCases <- isTSum eType 
   let patternLabels = sort [ l | Pattern l _ _ <- patternList]
@@ -403,12 +456,6 @@ synthesizeType (Return e) = TDist <$> synthesizeType e
 containsNoDuplicates :: Eq a => [a] -> Bool
 containsNoDuplicates as = nub as == as 
 
-isValidIndexType :: [(Name , Type)] -> TypeCheck ()
-isValidIndexType ss = do 
-  let labels = map fst ss 
-  let types = map snd ss 
-  unless (containsNoDuplicates labels) $ throwError $ "Duplicates in the labels of " ++ show ss
-  forM_ types $ isAType
 
 isAType :: Type -> TypeCheck () 
 isAType (TVar t)     = isDeclaredType t
@@ -425,14 +472,6 @@ isDistType TBool = return ()
 isDistType TNat = return ()
 isDistType (TSum ss)  = forM_ ss $ isDistType . snd
 isDistType (TProd ps) = forM_ ps $ isDistType . snd
-
-isDistType (TVar t) = do 
-  error "This should have a checker to make sure we only do distributable types/types with a sampling or something"
-  types <- asks typeVars 
-  let isDeclared = elem t types
-  unless isDeclared $ throwError $ 
-   "We expected " ++ show t ++ " to be in the typecontext " ++ show types ++ ", but it's not (this came up when checking it's a disttype, not sure that should happen in the first place)."
-
 isDistType t = throwError $ "We expected " ++ show t ++ "to be a distType, but it's not"
 
 substType :: Name -> Type -> Type -> Type
@@ -444,6 +483,7 @@ substType x s t = case t of
   (TVar x') -> if x == x' then s else t
   -- (TInd x' t') -> if x == x' then t else TInd x' (substType x s t')
   (TAll x' t') -> if x == x' then t else TAll x' (substType x s t')
+  -- Note that the above line is correct: If x = x', we don't want to substitute anything in t' and just return TAll x' t' (which is t). 
   (TSum ss)  -> TSum  $ map (second $ substType x s) ss
   (TProd ps) -> TProd $ map (second $ substType x s) ps
 
@@ -470,7 +510,6 @@ convertExp = \case
     PDistr t -> Distr (convertType t)
     PProj e (Ident ident) -> Proj ident (convertExp e)
     PAppT e t -> AppT (convertType t) (convertExp e)
-    -- DANGER: why do the arguments switch. 
     PProd es -> Prod (map (\(PLabExp (Ident ident) e) -> (ident, convertExp e)) es)
     PSum t (PLabExp (Ident ident) e) -> Sum (convertType t) ident (convertExp e)
     PCase e t patts -> Case (convertExp e) (convertType t) (map convertPattern patts)
