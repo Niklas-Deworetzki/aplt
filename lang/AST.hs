@@ -6,7 +6,7 @@ import Control.Monad
 import Control.Monad.Trans.Reader
 import Control.Monad.Error.Class
 import Data.Bifunctor
-import Data.List(sort, sortOn, nub)
+import Data.List(sort, nub)
 import Lang.Abs
 import Data.Tuple.Extra (secondM)
 
@@ -100,71 +100,7 @@ data Type
   | TDist Type
   deriving Show
 
---instance Eq Type where
---  t1 == t2 = matchTypes [] t1 t2
 
-equalityCheck :: Type -> Type -> TypeCheck ()
-equalityCheck s t = catchWhenEqualityChecking s t (typesEquality s t)
-
-typesEquality :: Type -> Type -> TypeCheck ()
-typesEquality TBool TBool = return ()
-typesEquality TNat TNat   = return ()
-typesEquality (TVar x)     (TVar y)     = do 
-  unless (x == y) $ expectedEqualError x y 
-  return ()
-typesEquality (TDist l)    (TDist r)    = typesEquality l r 
-typesEquality (TProd ls)   (TProd rs)   = indexEquality ls rs 
-typesEquality (TSum  ls)   (TSum  rs)   = indexEquality ls rs 
-typesEquality (TAll lx lt) (TAll rx rt) = typesEquality lt (renameTypeVar rx lx rt)
-typesEquality (TArr ldom lcod) (TArr rdom rcod) = typesEquality ldom rdom >> typesEquality lcod rcod
-typesEquality s t = expectedEqualError s t 
-
-isValidIndexType :: Index -> TypeCheck ()
-isValidIndexType ss = do 
-  let labels = map fst ss 
-  let types = map snd ss 
-  unless (containsNoDuplicates labels) $ throwError $ "Duplicates in the labels of " ++ show ss
-  forM_ types $ isAType
-
-isSubIndex :: Index -> Index -> TypeCheck ()
-isSubIndex index1 index2 =  do 
-  forM_ index1 $ \(label , typeIn1) -> do 
-    let errorMsg = "the label " ++ show label ++ "is not found in " ++ show index2
-    typeIn2 <- tryWithMessage (lookup label index2) errorMsg
-    typesEquality typeIn1 typeIn2
-
-indexEquality :: Index -> Index -> TypeCheck ()
-indexEquality ss ts = catchWhenEqualityChecking ss ts $ do 
-  isValidIndexType ss 
-  isValidIndexType ts 
-  isSubIndex ss ts 
-  isSubIndex ts ss
-
-{-
-equalityOfTypes :: Type -> Type -> TypeCheck Bool 
-equalityOfTypes t s = do
-    typeVarsInscope <- asks typeVars
-    let initialRenames = [ (a,a) | a <- typeVarsInscope ]
-    return $ matchTypes initialRenames t s
--}    
-{-
-matchTypes :: [(Name, Name)] -> Type -> Type -> Bool
--- matchTypes ms t s 
--- calculates under the renaming rules ms whether t equals s. 
-matchTypes _ TBool TBool = True
-matchTypes _ TNat TNat = True
-matchTypes ms (TVar l)     (TVar r)     = lookup l ms == Just r
-matchTypes ms (TDist l)    (TDist r)    = matchTypes  ms l r
-matchTypes ms (TProd ls)   (TProd rs)   = matchLabels ms ls rs
-matchTypes ms (TSum  ls)   (TSum  rs)   = matchLabels ms ls rs
-matchTypes ms (TAll lx lt) (TAll rx rt) = matchTypes  ((lx , rx) : ms) lt rt
-matchTypes ms (TArr la lr) (TArr ra rr) = matchTypes  ms la ra && matchTypes ms lr rr
-matchTypes _ _ _ = False
-
-matchLabels :: [(Name, Name)] -> [(Name, Type)] -> [(Name, Type)] -> Bool
-matchLabels ms ls rs = and $ zipWith f (sortOn fst ls) (sortOn fst rs)
-  where f (ll, lt) (rl, rt) = ll == rl && matchTypes ms lt rt
--}
 type TypeCheck = ReaderT Context (Either String)
 
 data Context = Ctxt { typeVars :: TypeContext , termVars :: TermContext }
@@ -257,14 +193,52 @@ isTSum :: Type -> TypeCheck Type
 isTSum (TSum ts) = return $ TSum ts
 isTSum t = isFormError t "TSum"
 
+
+-- Checker for equality of types
+checkEqualityOfTypes :: Type -> Type -> TypeCheck ()
+checkEqualityOfTypes TBool TBool = return ()
+checkEqualityOfTypes TNat TNat   = return ()
+checkEqualityOfTypes (TVar x) (TVar y) = do 
+  unless (x == y) $ expectedEqualError x y 
+  return ()
+checkEqualityOfTypes (TDist l) (TDist r) = checkEqualityOfTypes l r 
+checkEqualityOfTypes lType@(TProd ls) rType@(TProd rs) = 
+  catchWhenEqualityChecking lType rType $ indexEquality ls rs 
+checkEqualityOfTypes lType@(TSum  ls) rType@(TSum  rs) = 
+  catchWhenEqualityChecking lType rType $ 
+  indexEquality ls rs 
+checkEqualityOfTypes lType@(TAll lx lt) rType@(TAll rx rt) = 
+  catchWhenEqualityChecking lType rType $ 
+  checkEqualityOfTypes lt (renameTypeVar rx lx rt)
+checkEqualityOfTypes lType@(TArr ldom lcod) rType@(TArr rdom rcod) = 
+  catchWhenEqualityChecking lType rType $ 
+  checkEqualityOfTypes ldom rdom >> checkEqualityOfTypes lcod rcod
+checkEqualityOfTypes s t = expectedEqualError s t 
+
+isValidIndexType :: Index -> TypeCheck ()
+isValidIndexType ss = do 
+  let labels = map fst ss 
+  let types = map snd ss 
+  unless (containsNoDuplicates labels) $ throwError $ "Duplicates in the labels of " ++ show ss
+  forM_ types $ isAType
+
+isSubIndex :: Index -> Index -> TypeCheck ()
+isSubIndex index1 index2 =  do 
+  forM_ index1 $ \(label , typeIn1) -> do 
+    let errorMsg = "the label " ++ show label ++ "is not found in " ++ show index2
+    typeIn2 <- tryWithMessage (lookup label index2) errorMsg
+    checkEqualityOfTypes typeIn1 typeIn2
+
+indexEquality :: Index -> Index -> TypeCheck ()
+indexEquality ss ts = catchWhenEqualityChecking ss ts $ do 
+  isValidIndexType ss 
+  isValidIndexType ts 
+  isSubIndex ss ts 
+  isSubIndex ts ss
+
 -- Type Checker
 typeCheck :: Expr -> Either String Type
 typeCheck e = runReaderT (synthesizeType e) emptyCtxt
-
-checkEqualityOfTypes :: Type -> Type -> TypeCheck ()
-checkEqualityOfTypes = typesEquality
---  unless (t1 == t2) $ throwError $
---  "The types " ++ show t1 ++ " and " ++ show t2 ++ "should be equal, but they're not."
 
 exprHasType :: Expr -> Type -> TypeCheck ()
 -- exprHasType e t ensures that e has type t, and otherwise would throw an error. 
@@ -300,9 +274,7 @@ exprHasType expr@(Prod _) supposedType = catchWhenChecking expr supposedType $
   notOfTypeError expr supposedType
 
 exprHasType expr@(Sum t x e) supposedType@(TSum ts) = catchWhenChecking expr supposedType $ do 
-  typesEquality t supposedType
---  let errorMsg = "expected " ++ show t ++ " and " ++ show supposedType ++ " to be equal, but they're not"
---  unless (t == supposedType) $ throwError errorMsg
+  checkEqualityOfTypes t supposedType
   eType <- tryWithMessage (lookup x ts) $ "couldn't find " ++ show x ++ " in " ++ show ts
   exprHasType e eType 
 
@@ -311,7 +283,7 @@ exprHasType expr@(Sum _ _ _) supposedType = catchWhenChecking expr supposedType 
 
 
 exprHasType expr@(Case e t patternList) supposedType = catchWhenChecking expr supposedType $ do
-  typesEquality t supposedType
+  checkEqualityOfTypes t supposedType
   --unless (t == supposedType) $ notOfTypeError expr supposedType
   eType <- synthesizeType e 
   TSum eCases <- isTSum eType 
