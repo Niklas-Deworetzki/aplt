@@ -1,33 +1,12 @@
--- fix current bug with LambdaT equality of types checking. 
 -- check all expressions run. 
+
 -- describe language in report. 
+
 -- proof stuff with this description. 
--- write down meaningful examples. 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 - preservation proof (big step semantics)
 
 - Guard doesn't use the type, which is weird
-
-- Make sure we can only bind distributable types. 
 
 - latex new check and synthesize rules
 

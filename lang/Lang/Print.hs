@@ -156,13 +156,13 @@ instance Print Lang.Abs.PExp where
     Lang.Abs.PProd plabexps -> prPrec i 6 (concatD [doc (showString "<"), prt 0 plabexps, doc (showString ">")])
     Lang.Abs.PSum ptyp plabexp -> prPrec i 6 (concatD [doc (showString "inj"), prt 0 ptyp, doc (showString "{"), prt 0 plabexp, doc (showString "}")])
     Lang.Abs.PCase pexp ptyp pcaseexps -> prPrec i 6 (concatD [doc (showString "case"), prt 0 pexp, doc (showString "of"), prt 0 ptyp, doc (showString "{"), prt 0 pcaseexps, doc (showString "}")])
-    Lang.Abs.PRec pexp1 id_ pexp2 pexp3 -> prPrec i 6 (concatD [doc (showString "iter"), doc (showString "{"), prt 0 pexp1, doc (showString ";"), prt 0 id_, doc (showString ";"), prt 0 pexp2, doc (showString "}"), doc (showString "("), prt 7 pexp3, doc (showString ")")])
+    Lang.Abs.PRec pexp1 id_ pexp2 pexp3 -> prPrec i 6 (concatD [doc (showString "iter"), doc (showString "{"), prt 0 pexp1, doc (showString ";"), prt 0 id_, doc (showString ";"), prt 0 pexp2, doc (showString "}"), doc (showString "("), prt 0 pexp3, doc (showString ")")])
     Lang.Abs.PApp pexp1 pexp2 -> prPrec i 6 (concatD [prt 6 pexp1, prt 7 pexp2])
     Lang.Abs.PVar id_ -> prPrec i 6 (concatD [prt 0 id_])
     Lang.Abs.PBoolT -> prPrec i 7 (concatD [doc (showString "True")])
     Lang.Abs.PBoolF -> prPrec i 7 (concatD [doc (showString "False")])
     Lang.Abs.PZero -> prPrec i 7 (concatD [doc (showString "Z")])
-    Lang.Abs.PSucc pexp -> prPrec i 7 (concatD [doc (showString "S"), prt 7 pexp])
+    Lang.Abs.PSucc pexp -> prPrec i 7 (concatD [doc (showString "S"), doc (showString "("), prt 0 pexp, doc (showString ")")])
     Lang.Abs.PPar pexp -> prPrec i 7 (concatD [doc (showString "("), prt 0 pexp, doc (showString ")")])
 
 instance Print Lang.Abs.PLabExp where

@@ -1,0 +1,2 @@
+-- to write this function.
+--takeN : \n :: Nat -> ( distribution  : Distr Nat )

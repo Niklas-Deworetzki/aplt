@@ -358,6 +358,8 @@ synthesizeType n@(LambdaT x e) = catchWhenEvaluating n $ do
 
 synthesizeType n@(AppT t e) = catchWhenEvaluating n $ do 
   isAType t
+  isDistType t
+  -- DANGER We can only apply parametrized things over distrubitable types. 
   eType <- synthesizeType e
   (TAll x t') <- isTAll eType
   return $ substType x t t'
@@ -444,6 +446,8 @@ isDistType TBool = return ()
 isDistType TNat = return ()
 isDistType (TSum ss)  = forM_ ss $ isDistType . snd
 isDistType (TProd ps) = forM_ ps $ isDistType . snd
+isDistType (TVar _) = return()
+-- DANGER 
 isDistType t = throwError $ "We expected " ++ show t ++ "to be a distType, but it's not"
 
 substType :: Name -> Type -> Type -> Type
