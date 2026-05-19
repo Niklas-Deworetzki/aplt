@@ -1,1 +1,1 @@
-iter {Z ; a ; S S S (a)} (S S S S S Z)
+iter {Z ; a ; S (S (S (a)))} (S (Z))
