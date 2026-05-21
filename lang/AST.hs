@@ -352,13 +352,13 @@ synthesizeType expr@(App f a) = catchWhenEvaluating expr $ do
   exprHasType a t1 
   return t2
 
-synthesizeType n@(LambdaT x e) = catchWhenEvaluating n $ do 
+synthesizeType expr@(LambdaT x e) = catchWhenEvaluating expr $ do 
   t <- withTypeVar x $ synthesizeType e
   return $ TAll x t
 
 synthesizeType n@(AppT t e) = catchWhenEvaluating n $ do 
   isAType t
-  isDistType t
+  hasPrimitiveDistribution t
   -- DANGER We can only apply parametrized things over distrubitable types. 
   eType <- synthesizeType e
   (TAll x t') <- isTAll eType
@@ -386,12 +386,13 @@ synthesizeType expr@(Case _ t _) = catchWhenEvaluating expr $ do
 
 synthesizeType (LitBool _) = return TBool
 
-synthesizeType n@(If condition trueCase falseCase) = catchWhenEvaluating n $ do 
+synthesizeType expr@(If condition trueCase falseCase) = catchWhenEvaluating expr $ do 
   exprHasType condition TBool
   typeTrueCase <- synthesizeType trueCase
   catchError (exprHasType falseCase typeTrueCase) (\err -> throwError $
     "In an if expression, we need the types of " ++ (show trueCase) ++ " and " ++ (show falseCase) ++ " to be equal. We think the first types equals " ++ (show typeTrueCase) ++ "but when checking the second type is the same, we got the error " ++ err)
   return typeTrueCase
+
 
 synthesizeType Zero = return TNat
 synthesizeType (Succ e) = exprHasType e TNat >> return TNat
@@ -404,7 +405,7 @@ synthesizeType x@(Iter baseCase varName inductiveCase n) = catchWhenEvaluating x
   return baseCaseType
 
 synthesizeType x@(Distr t) = catchWhenEvaluating x $ do 
-  isDistType t 
+  hasPrimitiveDistribution t 
   return $ TDist t
 
 synthesizeType n@(Bind x e1 e2) = catchWhenEvaluating n $ do 
@@ -441,14 +442,14 @@ isAType (TDist t)    = isAType t
 isAType TBool        = return ()
 isAType TNat         = return ()
 
-isDistType :: Type -> TypeCheck ()
-isDistType TBool = return ()
-isDistType TNat = return ()
-isDistType (TSum ss)  = forM_ ss $ isDistType . snd
-isDistType (TProd ps) = forM_ ps $ isDistType . snd
-isDistType (TVar _) = return()
+hasPrimitiveDistribution :: Type -> TypeCheck ()
+hasPrimitiveDistribution TBool = return ()
+hasPrimitiveDistribution TNat = return ()
+hasPrimitiveDistribution (TSum ss)  = forM_ ss $ hasPrimitiveDistribution . snd
+hasPrimitiveDistribution (TProd ps) = forM_ ps $ hasPrimitiveDistribution . snd
+hasPrimitiveDistribution (TVar _) = return()
 -- DANGER 
-isDistType t = throwError $ "We expected " ++ show t ++ "to be a distType, but it's not"
+hasPrimitiveDistribution t = throwError $ "We expected " ++ show t ++ "to have a primitive distribution, but it's not. You"
 
 substType :: Name -> Type -> Type -> Type
 substType x s t = case t of
