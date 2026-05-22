@@ -1,1 +1,1 @@
-(\ x :: Bool -> True) ( \x :: Nat -> False) Z
+(\ x :: Bool -> True) (( \x :: Nat -> False) Z)

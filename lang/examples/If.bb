@@ -1,1 +1,1 @@
-if True then Z else (S Z)
+if True then Z else (S (Z))
