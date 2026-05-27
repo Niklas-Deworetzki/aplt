@@ -2,6 +2,6 @@
 
 --/\ T => (x ~ distr T in return x)
 (/\ T => (x ~ distr T in return x)) 
-[<fst: Bool , snd: Nat>]
+[<fst: Nat , snd: Nat>]
 
 
