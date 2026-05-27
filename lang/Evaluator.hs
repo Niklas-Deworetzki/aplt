@@ -20,7 +20,13 @@ interleaveN :: [Distr a] -> Distr a
 interleaveN = msum
 
 fairProduct :: [Distr a] -> Distr [a]
-fairProduct = sequence
+fairProduct = foldr prod (return [])
+  where
+    prod :: Distr a -> Distr [a] -> Distr [a]
+    prod d p = do
+      d >>- \x ->
+        p >>- \xs ->
+          return (x : xs)
 
 data Value
   = VBool Bool
