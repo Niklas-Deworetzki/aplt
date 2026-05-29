@@ -34,7 +34,7 @@ data Value
   | VProd [(Name, Value)]
   | VSum Name Value
   | VDist (Distr Value)
-  | VExpr Expr
+  | VExpr Expr Env
 
 instance Show Value where
   show (VBool v) = show v
@@ -52,7 +52,7 @@ instance Show Value where
     , "}"
     ]
   show (VDist _) = "<distribution value>"
-  show (VExpr e) = "(" ++ show e ++ ")"
+  show (VExpr e _) = "(" ++ show e ++ ")"
 
 type Env = [(Name, Value)]
 
@@ -67,6 +67,9 @@ evaluate arg e = case runReader (eval e) [] of
 withEnv :: Name -> Value -> Eval a -> Eval a
 withEnv x v = local ((x, v) :)
 
+continue :: Env -> Eval a -> Eval a
+continue env = local (const env)
+
 eval :: Expr -> Eval Value
 eval (Var x) =
   asks (fromJust . lookup x)
@@ -74,12 +77,12 @@ eval (Let x e1 e2) = do
   v <- eval e1
   withEnv x v $ eval e2
 eval (App f a) = eval f >>= \case
-  (VExpr (Lambda x _ b)) -> do
+  (VExpr (Lambda x _ b) staticEnv) -> do
     v <- eval a
-    withEnv x v $ eval b
+    continue staticEnv $ withEnv x v $ eval b
 eval (AppT t e) = eval e >>= \case
-  (VExpr (LambdaT x b)) ->
-    eval $ substT x t b
+  (VExpr (LambdaT x b) staticEnv) ->
+    continue staticEnv $ eval $ substT x t b
 eval (Prod es) = do
   es' <- forM es $ secondM eval
   return $ VProd es'
@@ -126,7 +129,7 @@ eval (Plus e1 e2) = do
     (VDist d1, VDist d2) -> return $ VDist $ interleave d1 d2
 eval (Return e) =
   VDist . return <$> eval e
-eval e = return $ VExpr e
+eval e = VExpr e <$> ask
 
 
 findCase :: [Pattern] -> Name -> (Name, Expr)
